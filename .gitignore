@@ -1,0 +1,21 @@
+# Node
+node_modules/
+.env
+.env.local
+
+# Python
+backend/__pycache__/
+backend/.venv/
+backend/*.pyc
+backend/.env
+
+# Expo
+apps/mobile/.expo/
+apps/mobile/dist/
+
+# Web
+apps/web/dist/
+
+# OS
+.DS_Store
+Coverline_Screen_Designs.html

@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Locum Ops",
+    "slug": "locum-ops",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.locumops.mobile"
+    },
+    "android": {
+      "package": "com.locumops.mobile"
+    },
+    "scheme": "locum-ops"
+  }
+}
