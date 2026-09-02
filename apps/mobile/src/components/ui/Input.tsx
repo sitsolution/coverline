@@ -7,7 +7,6 @@ import {
   StyleSheet,
   TextInputProps,
 } from 'react-native';
-import { Colors } from '../../constants/colors';
 
 interface InputProps extends TextInputProps {
   label: string;
@@ -26,7 +25,7 @@ export default function Input({ label, error, isPassword = false, ...props }: In
           {...props}
           secureTextEntry={isPassword && !visible}
           style={styles.input}
-          placeholderTextColor={Colors.textSecondary}
+          placeholderTextColor="#A9B8C4"
         />
         {isPassword && (
           <TouchableOpacity onPress={() => setVisible(!visible)} style={styles.eye}>
@@ -40,32 +39,33 @@ export default function Input({ label, error, isPassword = false, ...props }: In
 }
 
 const styles = StyleSheet.create({
-  wrapper: { marginBottom: 16 },
+  // .field — margin-bottom: 13px
+  wrapper: { marginBottom: 13 },
+  // label — font-size:11.5px; font-weight:700; color:var(--slate); margin-bottom:6px
   label: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#5C6B7A',
     marginBottom: 6,
   },
+  // input — padding:11px 12px; border:1.4px solid var(--line); border-radius:9px; font-size:13px; color:var(--ink); background:#fff
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.4,
-    borderColor: Colors.border,
+    borderColor: '#DCE4EA',
     borderRadius: 9,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    height: 46,
   },
-  inputError: { borderColor: Colors.error },
+  inputError: { borderColor: '#C0392B' },
   input: {
     flex: 1,
-    height: 48,
-    fontSize: 14,
-    color: Colors.text,
+    fontSize: 13,
+    color: '#14202E',
   },
   eye: { paddingLeft: 8 },
-  eyeText: { fontSize: 12, color: Colors.accent, fontWeight: '600' },
-  errorText: { fontSize: 12, color: Colors.error, marginTop: 4 },
+  eyeText: { fontSize: 11.5, color: '#175E86', fontWeight: '600' },
+  errorText: { fontSize: 11, color: '#C0392B', marginTop: 4 },
 });

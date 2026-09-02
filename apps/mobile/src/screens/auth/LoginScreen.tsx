@@ -67,13 +67,12 @@ export default function LoginScreen({ navigation }: Props) {
           title="Continue with Google"
           onPress={() => {}}
           variant="outline"
-          style={styles.socialBtn}
+          style={styles.googleBtn}
         />
         <Button
           title="Continue with Apple"
           onPress={() => {}}
           variant="outline"
-          style={styles.socialBtn}
         />
 
         <TouchableOpacity
@@ -92,17 +91,17 @@ export default function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  body: { padding: 28, paddingTop: 60 },
-  heading: { fontSize: 20, fontWeight: '800', color: '#1A1A2E', marginBottom: 8 },
-  subtitle: { fontSize: 12, color: '#5C6B7A', marginBottom: 32 },
-  forgotRow: { alignItems: 'flex-end', marginTop: -8, marginBottom: 24 },
-  forgotText: { fontSize: 11.5, color: '#175E86', fontWeight: '600' },
-  loginBtn: { marginBottom: 24 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  body: { paddingHorizontal: 18, paddingTop: 60, paddingBottom: 20 },
+  heading: { fontSize: 20, fontWeight: '800', color: '#14202E', marginBottom: 4 },
+  subtitle: { fontSize: 12, color: '#5C6B7A', marginBottom: 28 },
+  forgotRow: { alignItems: 'flex-end', marginTop: -4, marginBottom: 18 },
+  forgotText: { fontSize: 11.5, color: '#175E86', fontWeight: '700' },
+  loginBtn: { marginBottom: 16 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 18 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#DCE4EA' },
-  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#5C6B7A', fontWeight: '600' },
-  socialBtn: { marginBottom: 12 },
-  signupLink: { alignItems: 'center', marginTop: 16 },
+  dividerText: { marginHorizontal: 10, fontSize: 10.5, color: '#8697A6', fontWeight: '600' },
+  googleBtn: { marginBottom: 10 },
+  signupLink: { alignItems: 'center', marginTop: 20 },
   signupLinkText: { fontSize: 11.5, color: '#5C6B7A' },
-  link: { color: '#175E86', fontWeight: '600' },
+  link: { color: '#0F3D5C', fontWeight: '700' },
 });

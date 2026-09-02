@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AuthNavigator from './AuthNavigator';
+import StaffNavigator from './StaffNavigator';
 
 export default function RootNavigator() {
-  // TODO: check auth state and render AppNavigator or AuthNavigator
-  return <AuthNavigator />;
+  // TODO: replace with real auth state check
+  const isAuthenticated = false;
+
+  return isAuthenticated ? <StaffNavigator /> : <AuthNavigator />;
 }

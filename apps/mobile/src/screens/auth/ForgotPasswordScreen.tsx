@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import BackButton from '../../components/ui/BackButton';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
@@ -31,9 +32,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <KeyboardAvoidingView
@@ -72,7 +71,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         )}
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.backLink}>
-          <Text style={styles.backLinkText}>← Back to Login</Text>
+          <Text style={styles.backLinkText}>Back to Login</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -82,23 +81,12 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
   header: {
-    paddingTop: 6,
+    paddingTop: 14,
     paddingHorizontal: 18,
-    paddingBottom: 14,
+    paddingBottom: 8,
   },
-  backBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backArrow: { fontSize: 16, color: '#0F3D5C', lineHeight: 18 },
-  body: { flex: 1, padding: 28, paddingTop: 20 },
-  heading: { fontSize: 19, fontWeight: '800', color: '#1A1A2E', marginBottom: 12 },
+  body: { flex: 1, paddingHorizontal: 18, paddingTop: 20 },
+  heading: { fontSize: 19, fontWeight: '800', color: '#14202E', marginBottom: 12 },
   description: { fontSize: 12, color: '#5C6B7A', lineHeight: 22, marginBottom: 32 },
   btn: { marginBottom: 16 },
   successBox: {

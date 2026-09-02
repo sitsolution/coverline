@@ -64,8 +64,8 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 52,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -82,8 +82,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   textPrimary: {
     color: Colors.white,

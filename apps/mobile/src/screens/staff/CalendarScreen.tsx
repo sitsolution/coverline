@@ -1,0 +1,324 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Dimensions,
+} from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
+
+type Props = {
+  navigation: NativeStackNavigationProp<CalendarStackParamList, 'CalendarMain'>;
+};
+
+// ─── Calendar helpers ─────────────────────────────────────────────────────────
+
+const SCREEN_W = Dimensions.get('window').width;
+// 7 cells, 6 gaps of 5px, 36px horizontal padding
+const CELL_SIZE = Math.floor((SCREEN_W - 36 - 30) / 7);
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+
+const DAY_LABELS = ['S','M','T','W','T','F','S'];
+
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function firstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay(); // 0=Sun
+}
+
+function buildCells(year: number, month: number): (number | null)[] {
+  const offset = firstDayOfMonth(year, month);
+  const total = daysInMonth(year, month);
+  const cells: (number | null)[] = Array(offset).fill(null);
+  for (let d = 1; d <= total; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type DotColor = 'g' | 'y' | 'gr';
+
+type ShiftRow = {
+  initials: string;
+  title: string;
+  sub: string;
+  badgeLabel: string;
+  badgeType: 'success' | 'warning';
+};
+
+// ─── Static data (design reference) ─────────────────────────────────────────
+
+// Marks for September 2026
+const SEP_MARKS: Record<number, DotColor> = {
+  3: 'g', 6: 'y', 11: 'g', 14: 'gr', 18: 'y', 22: 'g',
+};
+
+const UPCOMING: ShiftRow[] = [
+  {
+    initials: 'AH',
+    title: 'Apollo Hospital · Sep 14',
+    sub: '8 PM – 8 AM · Emergency Med.',
+    badgeLabel: 'Confirmed',
+    badgeType: 'success',
+  },
+  {
+    initials: 'SJ',
+    title: 'St. Joseph Hospital · Sep 18',
+    sub: '9 AM – 5 PM · General Med.',
+    badgeLabel: 'Pending',
+    badgeType: 'warning',
+  },
+];
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function DotIndicator({ type }: { type: DotColor }) {
+  const bg = type === 'g' ? '#1F8A5F' : type === 'y' ? '#C97A2B' : '#8697A6';
+  return <View style={[styles.dot, { backgroundColor: bg }]} />;
+}
+
+type DayCellProps = {
+  day: number | null;
+  isToday: boolean;
+  mark?: DotColor;
+};
+
+function DayCell({ day, isToday, mark }: DayCellProps) {
+  if (day === null) return <View style={styles.cellEmpty} />;
+  return (
+    <TouchableOpacity
+      style={[styles.cell, isToday && styles.cellToday]}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.cellText, isToday && styles.cellTextToday]}>{day}</Text>
+      {mark ? <DotIndicator type={mark} /> : null}
+    </TouchableOpacity>
+  );
+}
+
+function ShiftListRow({ item }: { item: ShiftRow }) {
+  const ok = item.badgeType === 'success';
+  return (
+    <View style={styles.listRow}>
+      <View style={styles.listAvatar}>
+        <Text style={styles.listAvatarText}>{item.initials}</Text>
+      </View>
+      <View style={styles.listInfo}>
+        <Text style={styles.listTitle}>{item.title}</Text>
+        <Text style={styles.listSub}>{item.sub}</Text>
+      </View>
+      <View style={[styles.badge, ok ? styles.badgeSuccess : styles.badgeWarning]}>
+        <Text style={[styles.badgeText, ok ? styles.badgeSuccessText : styles.badgeWarningText]}>
+          {item.badgeLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
+export default function CalendarScreen({ navigation }: Props) {
+  // Start at September 2026 (design reference)
+  const [year, setYear] = useState(2026);
+  const [month, setMonth] = useState(8); // 0-indexed: 8 = September
+
+  const cells = buildCells(year, month);
+
+  // "Today" = day 14 in Sep 2026 for design; otherwise no highlight
+  const todayMarker = year === 2026 && month === 8 ? 14 : -1;
+
+  const marks = year === 2026 && month === 8 ? SEP_MARKS : {};
+
+  const goPrev = () => {
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+
+  const goNext = () => {
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* App Bar */}
+      <View style={styles.appbar}>
+        <Text style={styles.appbarTitle}>Calendar</Text>
+        <View style={styles.spacer} />
+        <TouchableOpacity
+          style={styles.iconBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SetAvailability')}
+        >
+          <Text style={styles.iconBtnText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+        {/* Month navigation */}
+        <View style={styles.monthRow}>
+          <TouchableOpacity onPress={goPrev} style={styles.arrowBtn} activeOpacity={0.7}>
+            <Text style={styles.monthArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.monthLabel}>{MONTH_NAMES[month]} {year}</Text>
+          <TouchableOpacity onPress={goNext} style={styles.arrowBtn} activeOpacity={0.7}>
+            <Text style={styles.monthArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Day label headers */}
+        <View style={styles.dayLabelRow}>
+          {DAY_LABELS.map((d, i) => (
+            <Text key={i} style={styles.dayLabel}>{d}</Text>
+          ))}
+        </View>
+
+        {/* Calendar grid */}
+        <View style={styles.calGrid}>
+          {cells.map((day, i) => (
+            <DayCell
+              key={i}
+              day={day}
+              isToday={day === todayMarker}
+              mark={day ? (marks as Record<number, DotColor>)[day] : undefined}
+            />
+          ))}
+        </View>
+
+        {/* Legend */}
+        <View style={styles.legendRow}>
+          <Text style={styles.legendText}>🟢 Confirmed</Text>
+          <Text style={styles.legendText}>🟡 Pending</Text>
+          <Text style={styles.legendText}>⚪ Available</Text>
+        </View>
+
+        {/* Upcoming Shifts */}
+        <Text style={styles.sectionTitle}>Upcoming Shifts</Text>
+        {UPCOMING.map((item, i) => (
+          <ShiftListRow key={i} item={item} />
+        ))}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F5F8FA' },
+
+  appbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  appbarTitle: { fontSize: 16.5, fontWeight: '800', color: '#14202E' },
+  spacer: { flex: 1 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DCE4EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnText: { fontSize: 18, color: '#0F3D5C', fontWeight: '400', lineHeight: 22 },
+
+  body: { paddingHorizontal: 18, paddingBottom: 20 },
+
+  // Month nav
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  arrowBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  monthArrow: { fontSize: 20, color: '#14202E', fontWeight: '600' },
+  monthLabel: { fontSize: 13, fontWeight: '800', color: '#14202E' },
+
+  // Day labels
+  dayLabelRow: { flexDirection: 'row', marginBottom: 6 },
+  dayLabel: { width: CELL_SIZE, textAlign: 'center', fontSize: 9.5, color: '#5C6B7A' },
+
+  // Calendar grid
+  calGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginBottom: 18,
+  },
+  cell: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DCE4EA',
+  },
+  cellEmpty: { width: CELL_SIZE, height: CELL_SIZE },
+  cellToday: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
+  cellText: { fontSize: 11, color: '#14202E' },
+  cellTextToday: { color: '#fff', fontWeight: '800' },
+
+  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+
+  // Legend
+  legendRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  legendText: { fontSize: 10, color: '#5C6B7A' },
+
+  // Section title
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#14202E', marginBottom: 10 },
+
+  // Shift list
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DCE4EA',
+  },
+  listAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EAF2F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  listAvatarText: { fontSize: 12, fontWeight: '800', color: '#0F3D5C' },
+  listInfo: { flex: 1 },
+  listTitle: { fontSize: 12.5, fontWeight: '700', color: '#14202E' },
+  listSub: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
+
+  badge: { borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3, flexShrink: 0 },
+  badgeSuccess: { backgroundColor: '#E3F5EC' },
+  badgeWarning: { backgroundColor: '#FBECDC' },
+  badgeText: { fontSize: 10.5, fontWeight: '700' },
+  badgeSuccessText: { color: '#1F8A5F' },
+  badgeWarningText: { color: '#C97A2B' },
+});

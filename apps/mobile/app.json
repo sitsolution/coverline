@@ -12,6 +12,9 @@
     "android": {
       "package": "com.locumops.mobile"
     },
-    "scheme": "locum-ops"
+    "scheme": "locum-ops",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

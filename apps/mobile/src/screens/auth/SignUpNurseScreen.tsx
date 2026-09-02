@@ -14,16 +14,16 @@ import Input from '../../components/ui/Input';
 import BackButton from '../../components/ui/BackButton';
 import PickerField from '../../components/ui/PickerField';
 
-type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUpDoctor'> };
+type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUpNurse'> };
 
-export default function SignUpDoctorScreen({ navigation }: Props) {
+export default function SignUpNurseScreen({ navigation }: Props) {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-    licenseNumber: '',
+    regNumber: '',
     specialty: '',
     experience: '',
   });
@@ -33,9 +33,8 @@ export default function SignUpDoctorScreen({ navigation }: Props) {
   const set = (key: keyof typeof form) => (val: string) =>
     setForm((f) => ({ ...f, [key]: val }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setLoading(true);
-    // TODO: call API
     setTimeout(() => {
       setLoading(false);
       navigation.navigate('OTPVerification', { email: form.email });
@@ -44,24 +43,24 @@ export default function SignUpDoctorScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.appbar}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>Doctor Registration</Text>
+        <Text style={styles.appbarTitle}>Nurse Registration</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Input label="Full Name" value={form.fullName} onChangeText={set('fullName')} placeholder="Dr. Ananya Rao" />
-        <Input label="Email Address" value={form.email} onChangeText={set('email')} placeholder="ananya.rao@email.com" keyboardType="email-address" autoCapitalize="none" />
-        <Input label="Phone Number" value={form.phone} onChangeText={set('phone')} placeholder="+91 98xxxxxx21" keyboardType="phone-pad" />
-        <Input label="Password" value={form.password} onChangeText={set('password')} placeholder="Create password" isPassword />
-        <Input label="Confirm Password" value={form.confirmPassword} onChangeText={set('confirmPassword')} placeholder="Repeat password" isPassword />
-        <Input label="Medical License Number" value={form.licenseNumber} onChangeText={set('licenseNumber')} placeholder="MCI-2019-88213" />
+        <Input label="Full Name" value={form.fullName} onChangeText={set('fullName')} placeholder="Sneha Kulkarni" />
+        <Input label="Email Address" value={form.email} onChangeText={set('email')} placeholder="sneha.kulkarni@email.com" keyboardType="email-address" autoCapitalize="none" />
+        <Input label="Phone Number" value={form.phone} onChangeText={set('phone')} placeholder="+91 98xxxxxx33" keyboardType="phone-pad" />
+        <Input label="Password" value={form.password} onChangeText={set('password')} placeholder="••••••••" isPassword />
+        <Input label="Confirm Password" value={form.confirmPassword} onChangeText={set('confirmPassword')} placeholder="••••••••" isPassword />
+        <Input label="Nursing Council Registration No." value={form.regNumber} onChangeText={set('regNumber')} placeholder="MNC-2021-44210" />
 
         <PickerField
-          label="SPECIALTY"
+          label="NURSING SPECIALTY"
           value={form.specialty}
           placeholder="Select specialty"
-          options={['General Medicine', 'Emergency Medicine', 'Anaesthesia', 'Pediatrics']}
+          options={['ICU Nursing', 'General Ward', 'OT Nursing', 'Pediatric Nursing', 'Emergency Nursing']}
           onSelect={set('specialty')}
         />
 
@@ -78,25 +77,15 @@ export default function SignUpDoctorScreen({ navigation }: Props) {
             {agreed && <Text style={styles.checkTick}>✓</Text>}
           </View>
           <Text style={styles.checkLabel}>
-            I agree to the{' '}
-            <Text style={styles.link}>Terms of Service</Text>
-            {' '}and{' '}
-            <Text style={styles.link}>Privacy Policy</Text>
+            I agree to the <Text style={styles.link}>Terms of Service</Text> & <Text style={styles.link}>Privacy Policy</Text>
           </Text>
         </TouchableOpacity>
 
-        <Button
-          title="Create Account"
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={!agreed}
-          style={styles.btn}
-        />
+        <Button title="Create Account" onPress={handleSubmit} loading={loading} disabled={!agreed} style={styles.btn} />
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginLink}>
           <Text style={styles.loginLinkText}>
-            Already have an account?{' '}
-            <Text style={styles.loginLinkHighlight}>Login</Text>
+            Already have an account? <Text style={styles.loginLinkHighlight}>Login</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -106,18 +95,17 @@ export default function SignUpDoctorScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
-  header: {
+  appbar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingTop: 14,
     paddingHorizontal: 18,
     paddingBottom: 6,
-    backgroundColor: '#F5F8FA',
   },
-  headerTitle: { fontSize: 16.5, fontWeight: '800', color: '#14202E' },
+  appbarTitle: { fontSize: 16.5, fontWeight: '800', color: '#14202E' },
   body: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 13 },
-  checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24 },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, marginBottom: 16 },
   checkbox: {
     width: 20,
     height: 20,

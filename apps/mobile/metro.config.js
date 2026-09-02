@@ -6,10 +6,13 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch the monorepo root so Metro sees all packages
-config.watchFolders = [monorepoRoot];
+// Keep Expo's default watch folders and add the monorepo root
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  monorepoRoot,
+];
 
-// Resolve workspace node_modules BEFORE root node_modules
+// Resolve project node_modules first, then monorepo node_modules
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),
