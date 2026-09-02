@@ -10,8 +10,14 @@
     "react-native-gesture-handler": "~2.20.2"
   },
   "scripts": {
-    "mobile": "npm run start --workspace=apps/mobile",
-    "web": "npm run dev --workspace=apps/web",
-    "backend": "cd backend && python -m uvicorn app.main:app --reload"
+    "mobile":  "npm run start --workspace=apps/mobile",
+    "web":     "npm run dev --workspace=apps/web",
+    "backend": "node scripts/backend.js",
+    "app":     "concurrently -n \"mobile,api\" -c \"blue,green\" \"npm run mobile\" \"npm run backend\"",
+    "admin":   "concurrently -n \"admin,api\"  -c \"cyan,green\"  \"npm run web\"    \"npm run backend\"",
+    "setup":   "node scripts/setup.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
   }
 }
