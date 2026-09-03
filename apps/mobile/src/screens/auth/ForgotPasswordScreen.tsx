@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
@@ -30,7 +30,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
@@ -74,7 +74,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           <Text style={styles.backLinkText}>Back to Login</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

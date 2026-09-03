@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Platform,
   Alert,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,10 +35,12 @@ function formatDate(date: Date): string {
 
 // ─── Date Field ───────────────────────────────────────────────────────────────
 
-function DateField({ label, value, onChange }: {
+function DateField({ label, value, onChange, minimumDate, maximumDate }: {
   label: string;
   value: Date;
   onChange: (date: Date) => void;
+  minimumDate?: Date;
+  maximumDate?: Date;
 }) {
   const [show, setShow] = useState(false);
 
@@ -61,6 +63,8 @@ function DateField({ label, value, onChange }: {
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={onPickerChange}
           onTouchCancel={() => setShow(false)}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
         />
       )}
       {show && Platform.OS === 'ios' && (
@@ -85,6 +89,11 @@ export default function DocumentUploadScreen({ navigation }: Props) {
 
   const handleBrowseFile = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Storage access is needed to pick files.');
+        return;
+      }
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/jpeg', 'image/png'],
         copyToCacheDirectory: true,
@@ -116,7 +125,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -163,10 +172,10 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         </View>
 
         {/* Issue Date */}
-        <DateField label="Issue Date" value={issueDate} onChange={setIssueDate} />
+        <DateField label="Issue Date" value={issueDate} onChange={setIssueDate} maximumDate={new Date()} />
 
         {/* Expiry Date */}
-        <DateField label="Expiry Date" value={expiryDate} onChange={setExpiryDate} />
+        <DateField label="Expiry Date" value={expiryDate} onChange={setExpiryDate} minimumDate={new Date()} />
 
         {/* Confirmation checkbox */}
         <TouchableOpacity
@@ -192,7 +201,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
           <Text style={styles.primaryBtnText}>{uploaded ? 'Uploaded ✓' : 'Upload'}</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

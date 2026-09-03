@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
@@ -107,7 +107,7 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [experience, setExperience] = useState(EXPERIENCE[2]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -154,7 +154,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

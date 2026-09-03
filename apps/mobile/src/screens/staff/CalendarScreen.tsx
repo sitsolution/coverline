@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
 
@@ -16,10 +16,6 @@ type Props = {
 };
 
 // ─── Calendar helpers ─────────────────────────────────────────────────────────
-
-const SCREEN_W = Dimensions.get('window').width;
-// 7 cells, 6 gaps of 5px, 36px horizontal padding
-const CELL_SIZE = Math.floor((SCREEN_W - 36 - 30) / 7);
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -94,11 +90,12 @@ type DayCellProps = {
   mark?: DotColor;
 };
 
-function DayCell({ day, isToday, mark }: DayCellProps) {
-  if (day === null) return <View style={styles.cellEmpty} />;
+function DayCell({ day, isToday, mark, cellSize }: DayCellProps & { cellSize: number }) {
+  const sizeStyle = { width: cellSize, height: cellSize };
+  if (day === null) return <View style={sizeStyle} />;
   return (
     <TouchableOpacity
-      style={[styles.cell, isToday && styles.cellToday]}
+      style={[styles.cell, sizeStyle, isToday && styles.cellToday]}
       activeOpacity={0.7}
     >
       <Text style={[styles.cellText, isToday && styles.cellTextToday]}>{day}</Text>
@@ -130,6 +127,9 @@ function ShiftListRow({ item }: { item: ShiftRow }) {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function CalendarScreen({ navigation }: Props) {
+  const { width: SCREEN_W } = useWindowDimensions();
+  const CELL_SIZE = Math.floor((SCREEN_W - 36 - 30) / 7);
+
   // Start at September 2026 (design reference)
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(8); // 0-indexed: 8 = September
@@ -152,7 +152,7 @@ export default function CalendarScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <Text style={styles.appbarTitle}>Calendar</Text>
@@ -181,7 +181,7 @@ export default function CalendarScreen({ navigation }: Props) {
         {/* Day label headers */}
         <View style={styles.dayLabelRow}>
           {DAY_LABELS.map((d, i) => (
-            <Text key={i} style={styles.dayLabel}>{d}</Text>
+            <Text key={i} style={[styles.dayLabel, { width: CELL_SIZE }]}>{d}</Text>
           ))}
         </View>
 
@@ -193,6 +193,7 @@ export default function CalendarScreen({ navigation }: Props) {
               day={day}
               isToday={day === todayMarker}
               mark={day ? (marks as Record<number, DotColor>)[day] : undefined}
+              cellSize={CELL_SIZE}
             />
           ))}
         </View>
@@ -210,7 +211,7 @@ export default function CalendarScreen({ navigation }: Props) {
           <ShiftListRow key={i} item={item} />
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
 
   // Day labels
   dayLabelRow: { flexDirection: 'row', marginBottom: 6 },
-  dayLabel: { width: CELL_SIZE, textAlign: 'center', fontSize: 9.5, color: '#5C6B7A' },
+  dayLabel: { textAlign: 'center', fontSize: 9.5, color: '#5C6B7A' },
 
   // Calendar grid
   calGrid: {
@@ -269,8 +270,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
@@ -278,7 +277,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DCE4EA',
   },
-  cellEmpty: { width: CELL_SIZE, height: CELL_SIZE },
+  cellEmpty: {},
   cellToday: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
   cellText: { fontSize: 11, color: '#14202E' },
   cellTextToday: { color: '#fff', fontWeight: '800' },

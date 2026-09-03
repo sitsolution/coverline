@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { DocsStackParamList } from '../../navigation/DocsStackNavigator';
 
@@ -76,7 +76,7 @@ function SubRow({
 
 export default function DocsScreen({ navigation }: Props) {
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <Text style={styles.appbarTitle}>My Documents</Text>
@@ -126,7 +126,7 @@ export default function DocsScreen({ navigation }: Props) {
           <Text style={styles.outlineBtnText}>+ Add Other Document</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

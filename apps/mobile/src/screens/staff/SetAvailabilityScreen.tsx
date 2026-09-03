@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
 
@@ -116,7 +116,7 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -165,7 +165,7 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
           <Text style={styles.calendarLink}>View My Calendar</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

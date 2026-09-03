@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -60,7 +60,7 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
   const reqText = REQ_TEXT[roleLabel] ?? REQ_TEXT['Doctor'];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -169,7 +169,7 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
           <Text style={styles.applyBtnText}>{applied ? 'Applied ✓' : 'Apply for Shift'}</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

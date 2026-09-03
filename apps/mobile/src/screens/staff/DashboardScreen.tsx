@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 
@@ -206,7 +206,7 @@ export default function DashboardScreen({ navigation }: Props) {
   const [activeRole, setActiveRole] = useState('Doctor');
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* Role Switcher — segmented control, icon only */}
       <View style={styles.segmentedWrap}>
         <View style={styles.segmented}>
@@ -284,7 +284,7 @@ export default function DashboardScreen({ navigation }: Props) {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
 
@@ -104,7 +104,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
   const items = DATA[activeTab];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -159,7 +159,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
 
@@ -56,7 +56,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const role = ROLES.find(r => r.key === activeRoleKey) ?? ROLES[0];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <Text style={styles.appbarTitle}>Profile</Text>
@@ -148,7 +148,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

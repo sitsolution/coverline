@@ -75,6 +75,6 @@ export default function StaffNavigator() {
 
 const styles = StyleSheet.create({
   tabItem: { alignItems: 'center', justifyContent: 'center' },
-  ic: { fontSize: 22 },
+  ic: { fontSize: 16 },
   label: { fontSize: 9.5, marginTop: 2 },
 });

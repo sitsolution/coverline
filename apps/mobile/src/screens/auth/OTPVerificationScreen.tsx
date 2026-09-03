@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -50,7 +50,7 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
   const otpFilled = otp.length === 6;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
@@ -114,7 +114,7 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

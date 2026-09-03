@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Set EXPO_PUBLIC_API_URL in .env for real device testing
+// Real device cannot reach localhost — use your machine's LAN IP e.g. http://192.168.1.x:8000/api/v1
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 export const api = axios.create({
   baseURL: BASE_URL,

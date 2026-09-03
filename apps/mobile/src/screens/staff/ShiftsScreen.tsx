@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
 
@@ -176,7 +176,7 @@ export default function ShiftsScreen({ navigation }: Props) {
     shiftStates[`${activeRole}-${shift.id}`] ?? shift.state;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <Text style={styles.appbarTitle}>Available Shifts</Text>
@@ -261,7 +261,7 @@ export default function ShiftsScreen({ navigation }: Props) {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

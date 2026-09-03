@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 
@@ -66,7 +66,7 @@ export default function NotificationsScreen({ navigation }: Props) {
   const notifs = TAB_DATA[activeTab];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -114,7 +114,7 @@ export default function NotificationsScreen({ navigation }: Props) {
           </TouchableOpacity>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
