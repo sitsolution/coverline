@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint,
 )
-from sqlalchemy import event
+from sqlalchemy import event, true as sa_true
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -24,6 +24,7 @@ class Shift(Base):
     end_time = Column(DateTime(timezone=True), nullable=False)
 
     pay_rate = Column(Numeric(10, 2), nullable=False)   # total pay for the shift, INR
+    overtime_rate = Column(Numeric(10, 2), nullable=True)   # per hour, beyond end_time
     slots = Column(Integer, default=1, nullable=False)
     slots_filled = Column(Integer, default=0, nullable=False)
 
@@ -38,8 +39,17 @@ class Shift(Base):
     is_weekend = Column(Boolean, default=False, nullable=False)
 
     requirements = Column(Text, nullable=True)
+    required_qualifications = Column(String(255), nullable=True)   # comma-separated
+    required_certifications = Column(String(255), nullable=True)   # comma-separated
     amenities = Column(String(500), nullable=True)   # comma-separated: "On-call room,Meals provided"
     description = Column(Text, nullable=True)
+
+    # "Make Visible to All Doctors" on the Create Shift form. A hidden shift is
+    # reachable by direct link but never appears in staff browse results.
+    is_visible = Column(Boolean, default=True, server_default=sa_true(), nullable=False)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    cancellation_reason = Column(String(255), nullable=True)
 
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -71,11 +81,23 @@ class Shift(Base):
 
     @property
     def amenity_list(self) -> list[str]:
-        return [a.strip() for a in (self.amenities or "").split(",") if a.strip()]
+        return _csv(self.amenities)
+
+    @property
+    def qualification_list(self) -> list[str]:
+        return _csv(self.required_qualifications)
+
+    @property
+    def certification_list(self) -> list[str]:
+        return _csv(self.required_certifications)
 
     @property
     def has_open_slots(self) -> bool:
         return self.status == ShiftStatus.open and self.slots_filled < self.slots
+
+
+def _csv(value: str | None) -> list[str]:
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
 def compute_night(start_time, end_time) -> bool:

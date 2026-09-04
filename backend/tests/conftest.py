@@ -86,3 +86,85 @@ def registered_doctor(client):
 @pytest.fixture
 def auth_headers(registered_doctor):
     return registered_doctor["headers"]
+
+
+# ── Admin fixtures ────────────────────────────────────────────────────────────
+
+ADMIN = {
+    "fullName": "Rakesh Menon",
+    "email": "admin@example.com",
+    "phone": "+919444444444",
+    "password": "Password1",
+    "role": "facility_admin",
+    "facilityName": "St. Joseph Hospital",
+    "facilityType": "hospital",
+    "city": "Pune",
+    "acceptedTerms": True,
+}
+
+
+@pytest.fixture
+def registered_admin(client, db_session):
+    """A facility admin who owns one facility as its super admin."""
+    from app.models.enums import FacilityRole
+    from app.models.facility import Facility, FacilityMember
+
+    response = client.post("/api/v1/auth/register", json=ADMIN)
+    assert response.status_code == 201, response.text
+    body = response.json()
+
+    # Registration creates the membership; promote it to super_admin, which is
+    # what an owner-created facility implies.
+    member = (
+        db_session.query(FacilityMember)
+        .filter(FacilityMember.user_id == body["userId"])
+        .one()
+    )
+    member.facility_role = FacilityRole.super_admin
+    db_session.commit()
+
+    facility = db_session.query(Facility).filter(Facility.id == member.facility_id).one()
+    return {
+        "headers": {"Authorization": f"Bearer {body['accessToken']}"},
+        "user_id": body["userId"],
+        "facility_id": facility.id,
+        "facility": facility,
+    }
+
+
+@pytest.fixture
+def admin_headers(registered_admin):
+    return registered_admin["headers"]
+
+
+@pytest.fixture
+def limited_admin(client, db_session, registered_admin):
+    """A manager on the same facility holding only the `shifts` permission."""
+    from app.models.enums import FacilityRole, UserRole
+    from app.models.facility import FacilityMember
+    from app.core.security import hash_password
+    from app.models.user import User
+
+    user = User(
+        email="manager@example.com",
+        full_name="Priya Menon",
+        hashed_password=hash_password("Password1"),
+        role=UserRole.facility_admin,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        FacilityMember(
+            facility_id=registered_admin["facility_id"],
+            user_id=user.id,
+            facility_role=FacilityRole.manager,
+            permissions="shifts",
+        )
+    )
+    db_session.commit()
+
+    token = client.post(
+        "/api/v1/auth/login", json={"email": "manager@example.com", "password": "Password1"}
+    ).json()["accessToken"]
+    return {"headers": {"Authorization": f"Bearer {token}"}, "user_id": user.id}

@@ -244,6 +244,36 @@ def change_password(
     return MessageResponse(message="Password changed successfully")
 
 
+@router.post("/accept-invitation", response_model=TokenResponse)
+def accept_invitation(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Completes an admin invitation.
+
+    The invited account was created with an unusable random password; this sets
+    the real one and marks the membership accepted, so the invitee chooses
+    their own credentials and nobody ever knows a password on their behalf.
+    """
+    from app.models.facility import FacilityMember
+
+    user = otp_service.consume_reset_token(db, payload.token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation link is invalid or has expired",
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.is_verified = True
+
+    db.query(FacilityMember).filter(
+        FacilityMember.user_id == user.id,
+        FacilityMember.accepted_at.is_(None),
+    ).update({"accepted_at": datetime.now(timezone.utc)}, synchronize_session=False)
+
+    db.commit()
+    db.refresh(user)
+    return TokenResponse(**_token_response(user))
+
+
 @router.post("/logout", response_model=MessageResponse)
 def logout(current_user: User = Depends(get_current_user)):
     """Tokens are stateless, so this is advisory: the client discards them.

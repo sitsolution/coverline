@@ -201,6 +201,58 @@ Once the backend is running, interactive API docs are available at:
 `dateTo`, `shiftType` (`Day`/`Night`/`Weekend`/`Urgent`), `minPay`, `maxPay`,
 `urgentOnly`, `includeApplied`, `limit`, `offset`.
 
+### Admin panel endpoints by page
+
+Every route below sits under `/api/v1/admin` and is subject to two rules
+(enforced in `app/core/admin.py`, not in each handler):
+
+1. **Facility scoping** — a facility admin only ever sees data belonging to
+   facilities they are a member of. A platform `super_admin` is unscoped.
+   Out-of-scope records return **404**, not 403, so their existence is not
+   confirmed.
+2. **Permissions** — each screen maps to a permission (`shifts`, `staff`,
+   `bookings`, `documents`, `reports`, `billing`). A facility `super_admin`
+   implicitly holds all of them.
+
+| Page | Method & path |
+|---|---|
+| Admin Login | `POST /auth/login` (shared with mobile) |
+| Dashboard | `GET /admin/dashboard` |
+| Shift Management | `GET /admin/shifts` |
+| Create Shift | `GET /admin/shifts/form-options` · `POST /admin/shifts` |
+| Shift Details | `GET /admin/shifts/{id}` · `PATCH /admin/shifts/{id}` |
+| — assign / reject | `POST /admin/shifts/{id}/assign` · `POST /admin/shifts/{id}/applicants/{id}/reject` |
+| — publish / duplicate | `POST /admin/shifts/{id}/publish` · `POST /admin/shifts/{id}/duplicate` |
+| — cancel / complete | `POST /admin/shifts/{id}/cancel` · `POST /admin/shifts/{id}/complete` |
+| Staff Database | `GET /admin/staff` · `GET /admin/staff/filter-options` · `POST /admin/staff/invite` |
+| Staff Profile | `GET /admin/staff/{id}` |
+| — tabs | `GET /admin/staff/{id}/shifts` · `/reviews` · `/notes` |
+| — write | `POST /admin/staff/{id}/reviews` · `POST`/`DELETE /admin/staff/{id}/notes` |
+| Bookings | `GET /admin/bookings` · `GET /admin/bookings/export` (CSV) |
+| Booking Details | `GET /admin/bookings/{id}` · `POST /admin/bookings/{id}/messages` |
+| — actions | `POST /admin/bookings/{id}/complete` · `POST /admin/bookings/{id}/cancel` |
+| Document Verification | `GET /admin/documents` · `GET /admin/documents/{id}/file` |
+| — review | `POST /admin/documents/{id}/verify` · `POST /admin/documents/{id}/reject` |
+| Reports | `GET /admin/reports` |
+| Calendar View | `GET /admin/calendar?year=&month=` |
+| Notifications Centre | `GET /notifications?categories=…` (shared with mobile) |
+| Settings → Facility | `GET`/`PATCH /admin/settings/facility` |
+| Settings → Users | `GET /admin/settings/users` · `PATCH`/`DELETE /admin/settings/users/{memberId}` |
+| Add Admin User | `GET /admin/settings/permissions` · `POST /admin/settings/users` |
+| — invitee accepts | `POST /auth/accept-invitation` |
+| Invoices & Billing | `GET /admin/invoices` · `GET /admin/invoices/{id}` |
+| — actions | `POST /admin/invoices/{id}/pay` · `GET /admin/invoices/{id}/download` |
+
+**Derived statuses.** Three states the UI shows are computed, never stored, so
+they can never go stale: a shift is *Pending* when it is open and has
+applicants; a booking is *Upcoming* when it is confirmed and its shift has not
+started; an invoice is *Overdue* when it is unpaid past its due date.
+
+**The admin panel closes the mobile loop.** Until a shift is assigned via
+`POST /admin/shifts/{id}/assign`, applications stay pending forever; until a
+booking is completed, no `Payment` row exists and the mobile Earnings screen
+stays empty.
+
 ### Development data
 
 ```bash
@@ -216,7 +268,8 @@ and ~64 shifts. All accounts use the password `Password1`:
 | Nurse | `sneha.kulkarni@example.com` |
 | OT Technician | `vikram.nair@example.com` |
 | Housekeeping | `meena.pawar@example.com` |
-| Facility admin | `admin@apollo.example.com` |
+| Facility admin (super admin, all permissions) | `admin@apollo.example.com` |
+| Facility admin (manager, shifts + bookings only) | `manager@apollo.example.com` |
 
 > There is no SMS/email provider yet. While `DEBUG=true`, `POST /auth/register`
 > and `POST /auth/resend-otp` return the code as `debugOtp` so the verification
@@ -228,9 +281,10 @@ and ~64 shifts. All accounts use the password `Password1`:
 npm run backend:test
 ```
 
-72 tests covering auth, shift search and filtering, applications, documents,
-earnings and per-role access control. They run against in-memory SQLite, so no
-MySQL server is needed.
+146 tests covering auth, shift search and filtering, applications, documents,
+earnings, the full admin panel, and — most importantly — facility scoping and
+permission gating. They run against in-memory SQLite, so no MySQL server is
+needed.
 
 ---
 
@@ -259,7 +313,10 @@ coverline/
 ├── backend/                     # FastAPI backend
 │   ├── app/
 │   │   ├── api/v1/endpoints/    # Route handlers, one module per domain
+│   │   │   └── admin/           # Admin panel routes (facility-scoped)
 │   │   ├── core/                # Config, database, security, auth dependencies
+│   │   │   ├── deps.py          # Authentication + role guards
+│   │   │   └── admin.py         # Facility scoping + admin permissions
 │   │   ├── models/              # SQLAlchemy ORM models + shared enums
 │   │   ├── schemas/             # Pydantic request/response schemas (camelCase)
 │   │   ├── services/            # OTP, file storage, notifications, serializers
@@ -329,7 +386,8 @@ Output goes to `apps/web/dist/` — deploy to any static host (Netlify, Vercel, 
 | **Nurse** | Mobile | Registers with nursing council registration number |
 | **OT Technician** | Mobile | Registers with OT certification |
 | **Housekeeping** | Mobile | Registers with Aadhaar ID proof |
-| **Admin** | Web | Hospital / clinic administrator managing shifts and staff |
+| **Facility admin** | Web | Hospital / clinic administrator managing shifts and staff. Within a facility they are a `super_admin`, `manager` or `staff` member, each holding a subset of the six screen permissions |
+| **Super admin** | Web | Platform operator — unscoped across all facilities |
 
 ---
 

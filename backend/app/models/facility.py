@@ -1,9 +1,11 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.enums import FacilityType, enum_column
+from app.models.enums import AdminPermission, FacilityRole, FacilityType, enum_column
 
 
 class Facility(Base):
@@ -26,6 +28,8 @@ class Facility(Base):
     latitude = Column(Numeric(9, 6), nullable=True)
     longitude = Column(Numeric(9, 6), nullable=True)
 
+    contact_email = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
     logo_url = Column(String(500), nullable=True)
     rating = Column(Numeric(3, 2), default=0, nullable=False)
 
@@ -51,13 +55,40 @@ class Facility(Base):
 
 
 class FacilityMember(Base):
-    """Links a facility_admin user to the facilities they manage."""
+    """Links a facility_admin user to a facility, with their authority there.
+
+    Permissions are a comma-separated subset of AdminPermission — the checkbox
+    list on the Add Admin User screen. A facility super_admin implicitly holds
+    all of them.
+    """
 
     __tablename__ = "facility_members"
 
     id = Column(Integer, primary_key=True, index=True)
     facility_id = Column(Integer, ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    facility_role = Column(
+        enum_column(FacilityRole),
+        default=FacilityRole.manager,
+        server_default=FacilityRole.manager.value,
+        nullable=False,
+    )
+    permissions = Column(String(255), nullable=True)
+    invited_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    facility = relationship("Facility", back_populates="members")
+    facility = relationship("Facility", back_populates="members", foreign_keys=[facility_id])
+
+    __table_args__ = (UniqueConstraint("facility_id", "user_id", name="uq_member_facility_user"),)
+
+    @property
+    def permission_list(self) -> list[str]:
+        if self.facility_role == FacilityRole.super_admin:
+            return [p.value for p in AdminPermission]
+        return [p.strip() for p in (self.permissions or "").split(",") if p.strip()]
+
+    def can(self, permission: AdminPermission) -> bool:
+        return permission.value in self.permission_list

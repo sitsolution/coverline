@@ -126,9 +126,12 @@ def list_shifts(
         urgent_only=urgent_only,
     )
 
-    # Only open, future shifts with a free slot are browsable.
+    # Only open, visible, future shifts with a free slot are browsable. The
+    # status check also keeps drafts out; is_visible honours the "Make Visible
+    # to All Doctors" toggle on the admin Create Shift form.
     query = query.filter(
         Shift.status == ShiftStatus.open,
+        Shift.is_visible.is_(True),
         Shift.start_time > datetime.now(timezone.utc),
         Shift.slots_filled < Shift.slots,
     )
@@ -166,6 +169,7 @@ def recommended_shifts(
     query = _base_query(db).join(Facility, Shift.facility_id == Facility.id).filter(
         Shift.role == current_user.role,
         Shift.status == ShiftStatus.open,
+        Shift.is_visible.is_(True),
         Shift.start_time > datetime.now(timezone.utc),
         Shift.slots_filled < Shift.slots,
     )

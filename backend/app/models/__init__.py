@@ -6,13 +6,18 @@ autogenerate only sees tables whose module has been imported.
 
 from app.models.application import Application
 from app.models.availability import Availability, ShiftPreference
+from app.models.billing import Invoice, InvoiceLineItem, PaymentMethod
 from app.models.document import Document
 from app.models.enums import (
+    FACILITY_ADMIN_ROLES,
     STAFF_ROLES,
+    AdminPermission,
     ApplicationStatus,
     DocumentStatus,
     DocumentType,
+    FacilityRole,
     FacilityType,
+    InvoiceStatus,
     NotificationCategory,
     OtpPurpose,
     PaymentStatus,
@@ -26,10 +31,21 @@ from app.models.notification import Notification
 from app.models.otp import OtpCode, PasswordResetToken
 from app.models.payment import Payment, PayoutRequest
 from app.models.shift import Shift, ShiftFavorite
+from app.models.staff_meta import BookingMessage, StaffNote, StaffReview
 from app.models.support import DeviceToken, Faq, SupportTicket
 from app.models.user import StaffProfile, User, UserSettings
 
 __all__ = [
+    "FACILITY_ADMIN_ROLES",
+    "InvoiceStatus",
+    "FacilityRole",
+    "AdminPermission",
+    "BookingMessage",
+    "StaffNote",
+    "StaffReview",
+    "PaymentMethod",
+    "InvoiceLineItem",
+    "Invoice",
     "Application",
     "ApplicationStatus",
     "Availability",

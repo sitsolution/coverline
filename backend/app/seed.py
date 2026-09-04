@@ -19,8 +19,11 @@ from app.core.security import hash_password
 from app.models.application import Application
 from app.models.availability import Availability, ShiftPreference
 from app.models.document import Document
+from app.models.billing import Invoice, InvoiceLineItem, PaymentMethod
 from app.models.enums import (
     ApplicationStatus,
+    FacilityRole,
+    InvoiceStatus,
     DocumentStatus,
     DocumentType,
     FacilityType,
@@ -33,6 +36,7 @@ from app.models.facility import Facility, FacilityMember
 from app.models.notification import Notification
 from app.models.payment import Payment
 from app.models.shift import Shift
+from app.models.staff_meta import StaffReview
 from app.models.support import Faq
 from app.models.user import StaffProfile, User, UserSettings
 
@@ -143,7 +147,46 @@ def seed(db: Session) -> None:
     db.flush()
 
     for facility in facilities:
-        db.add(FacilityMember(facility_id=facility.id, user_id=admin.id))
+        facility.contact_email = f"ops@{facility.name.split()[0].lower()}.example.com"
+        facility.description = f"{facility.facility_type.value.title()} in {facility.city}"
+        db.add(
+            FacilityMember(
+                facility_id=facility.id,
+                user_id=admin.id,
+                facility_role=FacilityRole.super_admin,
+                accepted_at=now,
+            )
+        )
+        db.add(
+            PaymentMethod(
+                facility_id=facility.id, label="HDFC Bank", last4="2291", is_primary=True
+            )
+        )
+
+    # A manager with a narrower permission set, so the admin panel's
+    # permission gating has something real to exercise.
+    manager = User(
+        email="manager@apollo.example.com",
+        phone="+919400000002",
+        full_name="Priya Menon",
+        hashed_password=hash_password(PASSWORD),
+        role=UserRole.facility_admin,
+        is_verified=True,
+        accepted_terms_at=now,
+    )
+    db.add(manager)
+    db.flush()
+    db.add(UserSettings(user_id=manager.id))
+    db.add(
+        FacilityMember(
+            facility_id=facilities[0].id,
+            user_id=manager.id,
+            facility_role=FacilityRole.manager,
+            permissions="shifts,bookings",
+            invited_by_id=admin.id,
+            accepted_at=now,
+        )
+    )
 
     # ── Staff accounts ────────────────────────────────────────────────────────
     staff_users = []
@@ -208,6 +251,7 @@ def seed(db: Session) -> None:
                 pay_rate=Decimal(str(pay + (400 if is_night else 0))),
                 slots=random.choice([1, 1, 2]),
                 status=ShiftStatus.open,
+                published_at=now,
                 is_urgent=offset <= 3,
                 requirements=REQUIREMENTS[role],
                 amenities="On-call room,Meals provided,Cab pickup",
@@ -229,7 +273,8 @@ def seed(db: Session) -> None:
                 facility_id=facility.id, role=role, specialty=specialty,
                 title=f"{specialty} shift", start_time=start, end_time=start + timedelta(hours=8),
                 pay_rate=Decimal(str(pay)), slots=1, slots_filled=1,
-                status=ShiftStatus.completed, requirements=REQUIREMENTS[role],
+                status=ShiftStatus.completed, published_at=start - timedelta(days=3),
+                requirements=REQUIREMENTS[role],
                 amenities="Meals provided", created_by_id=admin.id,
             )
             db.add(shift)
@@ -247,7 +292,8 @@ def seed(db: Session) -> None:
             confirmed_shift.slots_filled += 1
             db.add(Application(
                 shift_id=confirmed_shift.id, staff_id=user.id,
-                status=ApplicationStatus.confirmed, responded_at=now,
+                status=ApplicationStatus.confirmed,
+                responded_at=now + timedelta(hours=6),
             ))
         if len(role_shifts) > 1:
             db.add(Application(
@@ -290,6 +336,58 @@ def seed(db: Session) -> None:
                 is_read=category == NotificationCategory.payment,
             ))
 
+    # Reviews, so staff ratings are computed from real rows.
+    for user in staff_users:
+        for index, facility in enumerate(facilities[:2]):
+            db.add(
+                StaffReview(
+                    staff_id=user.id,
+                    facility_id=facility.id,
+                    author_id=admin.id,
+                    rating=Decimal("5.0" if index == 0 else "4.5"),
+                    comment="Reliable and professional." if index == 0 else "Good cover.",
+                )
+            )
+        profile = db.query(StaffProfile).filter(StaffProfile.user_id == user.id).first()
+        if profile is not None:
+            profile.rating = Decimal("4.75")
+            profile.reviews_count = 2
+
+    # Invoices for the primary facility: one paid, one unpaid, one overdue.
+    primary = facilities[0]
+    invoice_specs = [
+        (0, InvoiceStatus.unpaid, 92000),
+        (1, InvoiceStatus.paid, 78400),
+        (2, InvoiceStatus.unpaid, 105000),   # dated far enough back to be overdue
+    ]
+    for months_back, invoice_status, amount in invoice_specs:
+        issued = (now.date().replace(day=1) - timedelta(days=months_back * 30)).replace(day=1)
+        due = issued + timedelta(days=29)
+        invoice = Invoice(
+            facility_id=primary.id,
+            number=f"INV-{3381 - months_back * 11}",
+            status=invoice_status,
+            period_start=issued,
+            period_end=due,
+            issued_on=issued,
+            due_on=due,
+            subtotal=Decimal(str(amount)),
+            tax=Decimal("0"),
+            total=Decimal(str(amount)),
+            paid_at=now if invoice_status == InvoiceStatus.paid else None,
+        )
+        db.add(invoice)
+        db.flush()
+        db.add(
+            InvoiceLineItem(
+                invoice_id=invoice.id,
+                description="Locum shift cover",
+                quantity=Decimal("1"),
+                unit_amount=Decimal(str(amount)),
+                amount=Decimal(str(amount)),
+            )
+        )
+
     for order, (question, answer) in enumerate(FAQS):
         db.add(Faq(question=question, answer=answer, category="General", sort_order=order))
 
@@ -299,8 +397,10 @@ def seed(db: Session) -> None:
     print(f"  {len(staff_users)} staff + 1 facility admin (password: {PASSWORD})")
     for spec in STAFF:
         print(f"    {spec['role'].value:<14} {spec['email']}")
-    print(f"    facility_admin admin@apollo.example.com")
-    print(f"  {len(facilities)} facilities, {len(shifts) + len(past_shifts)} shifts, {len(FAQS)} FAQs")
+    print(f"    facility_admin admin@apollo.example.com   (super admin, all permissions)")
+    print(f"    facility_admin manager@apollo.example.com (manager, shifts + bookings only)")
+    print(f"  {len(facilities)} facilities, {len(shifts) + len(past_shifts)} shifts, "
+          f"{len(invoice_specs)} invoices, {len(FAQS)} FAQs")
 
 
 def main() -> None:

@@ -15,7 +15,9 @@ from app.schemas.notification import NotificationListResponse, NotificationOut
 
 router = APIRouter()
 
-#: The screen's tabs, and which categories each covers.
+#: Presets matching the mobile Notifications screen's tabs. Its "Shift Alerts"
+#: deliberately covers application updates too, which is why this is not a
+#: one-tab-per-category map.
 TAB_CATEGORIES = {
     "all": None,
     "unread": None,
@@ -29,13 +31,33 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     tab: str = Query("all", pattern="^(all|unread|shift_alerts|payments)$"),
+    categories: Optional[str] = Query(
+        None,
+        description="Comma-separated categories, overriding `tab`. The admin "
+                    "centre uses this for its Applications and System tabs, "
+                    "which do not map onto the mobile presets.",
+    ),
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     """Notifications screen."""
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
 
-    if tab == "unread":
+    if categories:
+        try:
+            wanted = [
+                NotificationCategory(value.strip())
+                for value in categories.split(",")
+                if value.strip()
+            ]
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unknown notification category",
+            )
+        if wanted:
+            query = query.filter(Notification.category.in_(wanted))
+    elif tab == "unread":
         query = query.filter(Notification.is_read.is_(False))
     elif TAB_CATEGORIES[tab] is not None:
         query = query.filter(Notification.category.in_(TAB_CATEGORIES[tab]))

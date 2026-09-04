@@ -223,6 +223,7 @@ def get_dashboard(
         .filter(
             Shift.role == current_user.role,
             Shift.status == ShiftStatus.open,
+            Shift.is_visible.is_(True),
             Shift.start_time > now,
             Shift.slots_filled < Shift.slots,
         )
@@ -266,6 +267,7 @@ def get_dashboard(
         .filter(
             Shift.role == current_user.role,
             Shift.status == ShiftStatus.open,
+            Shift.is_visible.is_(True),
             Shift.is_urgent.is_(True),
             Shift.start_time > now,
             Shift.slots_filled < Shift.slots,

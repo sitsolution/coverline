@@ -27,6 +27,7 @@ class FacilityType(str, enum.Enum):
 
 
 class ShiftStatus(str, enum.Enum):
+    draft = "draft"          # created but not published; never visible to staff
     open = "open"
     filled = "filled"
     completed = "completed"
@@ -84,6 +85,41 @@ class PayoutStatus(str, enum.Enum):
 class OtpPurpose(str, enum.Enum):
     signup_verification = "signup_verification"
     password_reset = "password_reset"
+
+
+#: Facility roles that may administer other members and billing.
+FACILITY_ADMIN_ROLES = ("super_admin", "manager")
+
+
+class FacilityRole(str, enum.Enum):
+    """A member's authority *within a facility*.
+
+    Distinct from UserRole.super_admin, which is platform-wide. A facility
+    super_admin administers one facility, not the whole platform.
+    """
+
+    super_admin = "super_admin"
+    manager = "manager"
+    staff = "staff"
+
+
+class AdminPermission(str, enum.Enum):
+    """Checkbox list on the Add Admin User screen."""
+
+    shifts = "shifts"
+    staff = "staff"
+    bookings = "bookings"
+    documents = "documents"
+    reports = "reports"
+    billing = "billing"
+
+
+class InvoiceStatus(str, enum.Enum):
+    draft = "draft"
+    unpaid = "unpaid"
+    paid = "paid"
+    overdue = "overdue"
+    void = "void"
 
 
 class TicketStatus(str, enum.Enum):
