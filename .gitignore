@@ -4,10 +4,15 @@ node_modules/
 .env.local
 
 # Python
-backend/__pycache__/
+__pycache__/
 backend/.venv/
-backend/*.pyc
+*.pyc
 backend/.env
+.pytest_cache/
+
+# Backend runtime artifacts
+backend/uploads/
+backend/*.db
 
 # Expo
 apps/mobile/.expo/

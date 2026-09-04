@@ -153,6 +153,85 @@ Once the backend is running, interactive API docs are available at:
 - **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **Health check:** [http://localhost:8000/health](http://localhost:8000/health)
 
+### Conventions
+
+- **Base path:** `/api/v1`
+- **Casing:** the API speaks **camelCase** in request bodies, responses, query
+  parameters and multipart form fields. Python stays snake_case internally.
+- **Auth:** `Authorization: Bearer <accessToken>` on everything except
+  `/auth/*` and `/support/faqs`.
+- **Times:** ISO 8601 UTC. **Money:** plain numbers (INR). The app does the
+  locale formatting — the server never returns pre-formatted strings like
+  `"Today"` or `"₹9,500"`.
+- **Validation errors** return `422` shaped for the mobile forms:
+
+  ```json
+  { "detail": "Password must contain at least one number",
+    "fields": { "password": "Password must contain at least one number" } }
+  ```
+
+### Endpoints by screen
+
+| Screen | Method & path |
+|---|---|
+| Sign Up (all 5 roles) | `POST /auth/register` |
+| OTP Verification | `POST /auth/verify-otp` · `POST /auth/resend-otp` |
+| Login | `POST /auth/login` · `POST /auth/refresh` |
+| Forgot Password | `POST /auth/forgot-password` · `POST /auth/reset-password` |
+| Dashboard (Home) | `GET /users/me/dashboard` |
+| Available Shifts | `GET /shifts` · `GET /shifts/filters` |
+| Recommended for You | `GET /shifts/recommended` |
+| Shift Details | `GET /shifts/{id}` · `POST /shifts/{id}/apply` |
+| Favourites (♡) | `POST`/`DELETE /shifts/{id}/favorite` · `GET /shifts/favorites` |
+| My Applications | `GET /applications` · `GET /applications/{id}` · `POST /applications/{id}/cancel` |
+| Calendar | `GET /calendar?year=&month=` · `GET /calendar/{date}` |
+| Set Availability | `GET /availability` · `PUT /availability` |
+| My Documents | `GET /documents` · `DELETE /documents/{id}` |
+| Upload Document | `GET /documents/types` · `POST /documents` (multipart) · `GET /documents/{id}/file` |
+| Profile | `GET /users/me` |
+| Edit Profile | `PATCH /users/me` · `POST /users/me/avatar` |
+| Notifications | `GET /notifications` · `GET /notifications/unread-count` · `POST /notifications/read-all` |
+| My Earnings | `GET /earnings/summary` · `GET /earnings/trend` · `GET /earnings/transactions` |
+| Withdraw / Payout | `POST /earnings/payouts` · `GET /earnings/payouts` |
+| Settings | `GET`/`PATCH /users/me/settings` · `POST /auth/change-password` · `POST /auth/logout` |
+| Push notifications | `POST`/`DELETE /users/me/device-token` |
+| Help & Support | `GET /support/faqs` · `POST /support/tickets` |
+
+`GET /shifts` accepts: `role`, `search`, `location`, `specialty`, `dateFrom`,
+`dateTo`, `shiftType` (`Day`/`Night`/`Weekend`/`Urgent`), `minPay`, `maxPay`,
+`urgentOnly`, `includeApplied`, `limit`, `offset`.
+
+### Development data
+
+```bash
+npm run backend:seed
+```
+
+Creates four staff accounts (one per role), a facility admin, four facilities
+and ~64 shifts. All accounts use the password `Password1`:
+
+| Role | Email |
+|---|---|
+| Doctor | `ananya.rao@example.com` |
+| Nurse | `sneha.kulkarni@example.com` |
+| OT Technician | `vikram.nair@example.com` |
+| Housekeeping | `meena.pawar@example.com` |
+| Facility admin | `admin@apollo.example.com` |
+
+> There is no SMS/email provider yet. While `DEBUG=true`, `POST /auth/register`
+> and `POST /auth/resend-otp` return the code as `debugOtp` so the verification
+> screen is testable. Set `DEBUG=false` in production and the field disappears.
+
+### Running the tests
+
+```bash
+npm run backend:test
+```
+
+72 tests covering auth, shift search and filtering, applications, documents,
+earnings and per-role access control. They run against in-memory SQLite, so no
+MySQL server is needed.
+
 ---
 
 ## Project structure
@@ -179,11 +258,15 @@ coverline/
 │
 ├── backend/                     # FastAPI backend
 │   ├── app/
-│   │   ├── api/v1/              # Route handlers
-│   │   ├── core/                # Config, security, JWT
-│   │   ├── models/              # SQLAlchemy ORM models
-│   │   └── schemas/             # Pydantic request/response schemas
-│   ├── migrations/              # Alembic migration files
+│   │   ├── api/v1/endpoints/    # Route handlers, one module per domain
+│   │   ├── core/                # Config, database, security, auth dependencies
+│   │   ├── models/              # SQLAlchemy ORM models + shared enums
+│   │   ├── schemas/             # Pydantic request/response schemas (camelCase)
+│   │   ├── services/            # OTP, file storage, notifications, serializers
+│   │   ├── main.py              # App factory, CORS, error shaping
+│   │   └── seed.py              # Development data
+│   ├── migrations/              # Alembic (env.py reads DATABASE_URL from .env)
+│   ├── tests/                   # pytest suite (in-memory SQLite)
 │   └── requirements.txt
 │
 ├── scripts/

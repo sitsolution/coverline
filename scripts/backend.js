@@ -15,11 +15,19 @@ const PYTHON = path.join(
   IS_WIN ? 'python.exe' : 'python'
 );
 
-const proc = spawn(
-  PYTHON,
-  ['-m', 'uvicorn', 'app.main:app', '--reload', '--port', '8000'],
-  { cwd: BACKEND, stdio: 'inherit', shell: false }
-);
+// npm run backend         -> start the API with reload
+// npm run backend:seed    -> load development data
+// npm run backend:test    -> run the pytest suite
+const MODES = {
+  '--seed': ['-m', 'app.seed'],
+  '--test': ['-m', 'pytest', '-q'],
+};
+const mode = process.argv.find((arg) => arg in MODES);
+const ARGS = mode
+  ? MODES[mode]
+  : ['-m', 'uvicorn', 'app.main:app', '--reload', '--port', '8000'];
+
+const proc = spawn(PYTHON, ARGS, { cwd: BACKEND, stdio: 'inherit', shell: false });
 
 proc.on('error', (err) => {
   if (err.code === 'ENOENT') {
