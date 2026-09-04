@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,128 +6,35 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
+import userService, { DashboardResponse, ShiftItem } from '../../services/userService';
+import shiftService from '../../services/shiftService';
+import Toast, { ToastType } from '../../components/ui/Toast';
 
 type Props = { navigation: NativeStackNavigationProp<HomeStackParamList, 'Dashboard'> };
 
-const ROLES = [
-  { label: 'Doctor', icon: '🩺' },
-  { label: 'Nurse', icon: '💉' },
-  { label: 'OT Tech', icon: '🔧' },
-  { label: 'Housekeeping', icon: '🧹' },
-];
+function formatShiftDate(isoString: string): string {
+  const date = new Date(isoString);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
 
-const STATS = [
-  { label: 'Available Shifts', value: '12' },
-  { label: 'Upcoming Shifts', value: '3' },
-  { label: 'Completed Shifts', value: '24' },
-  { label: 'Earnings this Month', value: '₹1,200' },
-];
+function formatShiftTime(start: string, end: string): string {
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
 
-type UrgentShift = {
-  id: string;
-  initials: string;
-  hospital: string;
-  location: string;
-  date: string;
-  time: string;
-  role: string;
-  duration: string;
-  tags: string[];
-  pay: string;
-};
-
-type RecommendedShift = {
-  id: string;
-  initials: string;
-  hospital: string;
-  location: string;
-  date: string;
-  time: string;
-  role: string;
-  duration: string;
-  pay: string;
-};
-
-const URGENT_SHIFTS: UrgentShift[] = [
-  {
-    id: '1',
-    initials: 'AH',
-    hospital: 'Apollo Hospital',
-    location: 'Kothrud, Pune',
-    date: 'Today',
-    time: '8 PM–8 AM',
-    role: 'OT Housekeeping',
-    duration: '12 hrs',
-    tags: ['Urgent', 'Night'],
-    pay: '₹1,600',
-  },
-  {
-    id: '2',
-    initials: 'SJ',
-    hospital: "St. John's Hospital",
-    location: 'Koregaon Park, Pune',
-    date: 'Tomorrow',
-    time: '7 AM–3 PM',
-    role: 'General Housekeeping',
-    duration: '8 hrs',
-    tags: ['Urgent'],
-    pay: '₹1,200',
-  },
-  {
-    id: '3',
-    initials: 'RH',
-    hospital: 'Ruby Hall Clinic',
-    location: 'Pune, MH',
-    date: 'Today',
-    time: '9 PM–9 AM',
-    role: 'Ward Housekeeping',
-    duration: '12 hrs',
-    tags: ['Urgent', 'Night'],
-    pay: '₹1,800',
-  },
-];
-
-const RECOMMENDED_SHIFTS: RecommendedShift[] = [
-  {
-    id: '1',
-    initials: 'CV',
-    hospital: 'CityCare Clinic',
-    location: 'Baner, Pune',
-    date: 'Sep 5',
-    time: '9 AM–5 PM',
-    role: 'General Housekeeping',
-    duration: '8 hrs',
-    pay: '₹1,000',
-  },
-  {
-    id: '2',
-    initials: 'MH',
-    hospital: 'Manipal Hospital',
-    location: 'Bangalore, KA',
-    date: 'Sep 6',
-    time: '7 AM–7 PM',
-    role: 'ICU Housekeeping',
-    duration: '12 hrs',
-    pay: '₹1,800',
-  },
-  {
-    id: '3',
-    initials: 'NH',
-    hospital: 'Narayana Health',
-    location: 'Hyderabad, TS',
-    date: 'Sep 7',
-    time: '8 AM–4 PM',
-    role: 'OT Housekeeping',
-    duration: '8 hrs',
-    pay: '₹1,200',
-  },
-];
-
-const AVATAR_COLORS = ['#D4E8F5', '#D5EED8', '#EED9F5', '#F5E8D4', '#D4EEF5'];
+function getInitials(name: string): string {
+  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
 
 function HospitalAvatar({ initials }: { initials: string }) {
   return (
@@ -137,120 +44,176 @@ function HospitalAvatar({ initials }: { initials: string }) {
   );
 }
 
-function UrgentShiftCard({ item }: { item: UrgentShift }) {
+function ShiftTags({ shift }: { shift: ShiftItem }) {
+  const tags = [];
+  if (shift.isUrgent) tags.push('Urgent');
+  if (shift.isNight) tags.push('Night');
+  if (shift.isWeekend) tags.push('Weekend');
+  return (
+    <View style={styles.metaRow}>
+      {tags.map((tag) => (
+        <View key={tag} style={styles.tagBadge}>
+          <Text style={styles.tagBadgeText}>{tag}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function UrgentShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: number) => void }) {
   return (
     <View style={styles.urgentCard}>
       <View style={styles.cardTopRow}>
-        <HospitalAvatar initials={item.initials} />
+        <HospitalAvatar initials={item.facilityInitials || getInitials(item.facilityName)} />
         <View style={styles.cardTopInfo}>
-          <Text style={styles.hospitalName}>{item.hospital}</Text>
-          <Text style={styles.hospitalLoc}>📍 {item.location}</Text>
+          <Text style={styles.hospitalName}>{item.facilityName}</Text>
+          <Text style={styles.hospitalLoc}>📍 {item.city}{item.area ? `, ${item.area}` : ''}</Text>
         </View>
       </View>
 
       <View style={styles.metaRow}>
-        <View style={styles.metaPill}><Text style={styles.metaText}>📅 {item.date}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>⏰ {item.time}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>📅 {formatShiftDate(item.startTime)}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>⏰ {formatShiftTime(item.startTime, item.endTime)}</Text></View>
       </View>
 
       <View style={[styles.metaRow, { marginTop: 5 }]}>
-        <View style={styles.metaPill}><Text style={styles.metaText}>🩺 {item.role}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>{item.duration}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>🩺 {item.specialty}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>{item.durationHours} hrs</Text></View>
       </View>
 
-      <View style={[styles.metaRow, { marginTop: 8 }]}>
-        {item.tags.map((tag) => (
-          <View key={tag} style={styles.tagBadge}>
-            <Text style={styles.tagBadgeText}>{tag}</Text>
-          </View>
-        ))}
-      </View>
+      <ShiftTags shift={item} />
 
       <View style={styles.cardBottomRow}>
-        <Text style={styles.shiftPay}>{item.pay}</Text>
-        <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85}>
-          <Text style={styles.applyBtnText}>Apply</Text>
-        </TouchableOpacity>
+        <Text style={styles.shiftPay}>₹{item.payRate.toLocaleString('en-IN')}</Text>
+        {item.applicationStatus ? (
+          <View style={styles.appliedBadge}>
+            <Text style={styles.appliedBadgeText}>{item.applicationStatus === 'confirmed' ? 'Confirmed' : 'Applied'}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85} onPress={() => onApply(item.id)}>
+            <Text style={styles.applyBtnText}>Apply</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 }
 
-function RecommendedShiftCard({ item }: { item: RecommendedShift }) {
+function RecommendedShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: number) => void }) {
   return (
     <View style={styles.recCard}>
       <View style={styles.cardTopRow}>
-        <HospitalAvatar initials={item.initials} />
+        <HospitalAvatar initials={item.facilityInitials || getInitials(item.facilityName)} />
         <View style={styles.cardTopInfo}>
-          <Text style={styles.hospitalName}>{item.hospital}</Text>
-          <Text style={styles.hospitalLoc}>📍 {item.location}</Text>
+          <Text style={styles.hospitalName}>{item.facilityName}</Text>
+          <Text style={styles.hospitalLoc}>📍 {item.city}{item.area ? `, ${item.area}` : ''}</Text>
         </View>
-        <Text style={styles.shiftPay}>{item.pay}</Text>
+        <Text style={styles.shiftPay}>₹{item.payRate.toLocaleString('en-IN')}</Text>
       </View>
 
       <View style={[styles.metaRow, { marginTop: 4 }]}>
-        <View style={styles.metaPill}><Text style={styles.metaText}>📅 {item.date}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>⏰ {item.time}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>🩺 {item.role}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>{item.duration}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>📅 {formatShiftDate(item.startTime)}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>⏰ {formatShiftTime(item.startTime, item.endTime)}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>🩺 {item.specialty}</Text></View>
+        <View style={styles.metaPill}><Text style={styles.metaText}>{item.durationHours} hrs</Text></View>
       </View>
 
-      <TouchableOpacity style={[styles.applyBtn, styles.applyBtnFull]} activeOpacity={0.85}>
-        <Text style={styles.applyBtnText}>Apply</Text>
-      </TouchableOpacity>
+      {item.applicationStatus ? (
+        <View style={[styles.applyBtn, styles.applyBtnFull, styles.appliedBadge]}>
+          <Text style={styles.appliedBadgeText}>{item.applicationStatus === 'confirmed' ? 'Confirmed' : 'Applied'}</Text>
+        </View>
+      ) : (
+        <TouchableOpacity style={[styles.applyBtn, styles.applyBtnFull]} activeOpacity={0.85} onPress={() => onApply(item.id)}>
+          <Text style={styles.applyBtnText}>Apply</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 export default function DashboardScreen({ navigation }: Props) {
-  const [activeRole, setActiveRole] = useState('Doctor');
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
+  const showToast = (message: string, type: ToastType = 'error') =>
+    setToast({ visible: true, message, type });
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      const data = await userService.getDashboard();
+      setDashboard(data);
+    } catch {
+      showToast('Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+  const handleApply = async (shiftId: number) => {
+    try {
+      await shiftService.applyToShift(shiftId);
+      showToast('Application submitted!', 'success');
+      loadDashboard();
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join('\n')
+        : (typeof detail === 'string' ? detail : 'Could not apply. Please try again.');
+      showToast(msg);
+    }
+  };
+
+  const user = dashboard?.user;
+  const stats = dashboard?.stats;
+
+  const STAT_CARDS = [
+    { label: 'Available Shifts', value: stats?.availableShifts ?? '—' },
+    { label: 'Upcoming Shifts', value: stats?.upcomingShifts ?? '—' },
+    { label: 'Completed Shifts', value: stats?.completedShifts ?? '—' },
+    { label: 'Earnings this Month', value: stats != null ? `₹${stats.earningsThisMonth.toLocaleString('en-IN')}` : '—' },
+  ];
+
+  const initials = user ? getInitials(user.fullName) : '?';
+
+  if (loading) {
+    return (
+      <Screen style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen style={styles.container}>
-      {/* Role Switcher — segmented control, icon only */}
-      <View style={styles.segmentedWrap}>
-        <View style={styles.segmented}>
-          {ROLES.map(({ label, icon }) => {
-            const active = activeRole === label;
-            return (
-              <TouchableOpacity
-                key={label}
-                onPress={() => setActiveRole(label)}
-                style={[styles.seg, active && styles.segActive]}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.segIcon}>{icon}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Row */}
         <View style={styles.headerRow}>
           <View style={styles.avatarRow}>
             <View style={styles.userAvatar}>
-              <Text style={styles.userAvatarInitial}>MP</Text>
+              <Text style={styles.userAvatarInitial}>{initials}</Text>
             </View>
             <View>
-              <Text style={styles.greeting}>Good morning,</Text>
-              <Text style={styles.userName}>Meena Pawar</Text>
+              <Text style={styles.greeting}>{dashboard?.greeting ?? 'Hello'},</Text>
+              <Text style={styles.userName}>{user?.fullName ?? ''}</Text>
             </View>
           </View>
           <View style={styles.bellWrap}>
             <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={() => navigation.navigate('Notifications')}>
               <Text style={styles.bellIcon}>🔔</Text>
             </TouchableOpacity>
-            <View style={styles.bellPing} />
+            {(dashboard?.unreadNotifications ?? 0) > 0 && <View style={styles.bellPing} />}
           </View>
         </View>
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          {STATS.map((stat) => (
+          {STAT_CARDS.map((stat) => (
             <View key={stat.label} style={styles.statCard}>
-              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statValue}>{String(stat.value)}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </View>
           ))}
@@ -259,31 +222,45 @@ export default function DashboardScreen({ navigation }: Props) {
         {/* Urgent Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Urgent Shifts Near You</Text>
-          <TouchableOpacity><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Shifts' as never)}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
-        <FlatList
-          data={URGENT_SHIFTS}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.urgentList}
-          renderItem={({ item }) => <UrgentShiftCard item={item} />}
-          nestedScrollEnabled
-        />
+        {(dashboard?.urgentShifts?.length ?? 0) > 0 ? (
+          <FlatList
+            data={dashboard?.urgentShifts}
+            keyExtractor={(item) => String(item.id)}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.urgentList}
+            renderItem={({ item }) => <UrgentShiftCard item={item} onApply={handleApply} />}
+            nestedScrollEnabled
+          />
+        ) : (
+          <Text style={styles.emptyText}>No urgent shifts right now</Text>
+        )}
 
         {/* Recommended Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recommended for You</Text>
-          <TouchableOpacity><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Shifts' as never)}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
-        {RECOMMENDED_SHIFTS.map((item) => (
-          <RecommendedShiftCard key={item.id} item={item} />
-        ))}
+        {(dashboard?.recommendedShifts?.length ?? 0) > 0 ? (
+          dashboard?.recommendedShifts.map((item) => (
+            <RecommendedShiftCard key={item.id} item={item} onApply={handleApply} />
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No recommended shifts yet</Text>
+        )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }
@@ -291,36 +268,6 @@ export default function DashboardScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
 
-  // Segmented role switcher — sky bg, white active pill
-  segmentedWrap: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 14,
-  },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: '#EAF2F8', // --sky
-    borderRadius: 10,
-    padding: 3,
-  },
-  seg: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  segActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
-  segIcon: { fontSize: 17 },
-
-  // Header row
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -331,144 +278,64 @@ const styles = StyleSheet.create({
   },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   userAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#EAF2F8', // --sky
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: '#EAF2F8', alignItems: 'center', justifyContent: 'center',
   },
   userAvatarInitial: { fontSize: 14, fontWeight: '800', color: '#0F3D5C' },
   greeting: { fontSize: 11, color: '#5C6B7A' },
   userName: { fontSize: 14.5, fontWeight: '800', color: '#14202E' },
   bellWrap: { position: 'relative' },
   bellBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#DCE4EA', alignItems: 'center', justifyContent: 'center',
   },
   bellIcon: { fontSize: 14 },
   bellPing: {
-    position: 'absolute',
-    top: 5,
-    right: 6,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#C0392B', // --urgent
-    borderWidth: 1.5,
-    borderColor: '#fff',
+    position: 'absolute', top: 5, right: 6, width: 7, height: 7,
+    borderRadius: 3.5, backgroundColor: '#C0392B', borderWidth: 1.5, borderColor: '#fff',
   },
 
-  // Stats 2x2 grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 18,
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    width: '47.5%',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 12,
-    padding: 13,
-  },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 18, gap: 10, marginBottom: 16 },
+  statCard: { width: '47.5%', backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', borderRadius: 12, padding: 13 },
   statValue: { fontSize: 19, fontWeight: '800', color: '#0B2D45' },
   statLabel: { fontSize: 10.8, color: '#5C6B7A', marginTop: 2 },
 
-  // Section headers
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    marginTop: 18,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, marginTop: 18, marginBottom: 10,
   },
   sectionTitle: { fontSize: 13, fontWeight: '800', color: '#14202E' },
   sectionLink: { fontSize: 11, color: '#175E86', fontWeight: '700' },
+  emptyText: { fontSize: 12, color: '#8697A6', paddingHorizontal: 18, marginBottom: 8 },
 
-  // Hospital logo chip (in cards)
   hospitalAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-    flexShrink: 0,
-    backgroundColor: '#EAF2F8'
+    width: 32, height: 32, borderRadius: 8, alignItems: 'center',
+    justifyContent: 'center', marginRight: 8, flexShrink: 0, backgroundColor: '#EAF2F8',
   },
   hospitalAvatarText: { fontSize: 12, fontWeight: '800', color: '#0F3D5C' },
-
   cardTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   cardTopInfo: { flex: 1 },
 
-  // Urgent horizontal cards
   urgentList: { paddingHorizontal: 18, paddingBottom: 6, gap: 10 },
-  urgentCard: {
-    width: 210,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 12,
-    padding: 13,
-  },
+  urgentCard: { width: 210, backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', borderRadius: 12, padding: 13 },
 
-  // Tag pills (Urgent, Night, Weekend)
-  tagBadge: {
-    backgroundColor: '#EAF2F8', // --sky
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
+  tagBadge: { backgroundColor: '#EAF2F8', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   tagBadgeText: { fontSize: 10, fontWeight: '700', color: '#175E86' },
 
-  cardBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
+  cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
 
-  // Recommended vertical cards
-  recCard: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 12,
-    padding: 13,
-    marginHorizontal: 18,
-    marginBottom: 10,
-  },
+  recCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', borderRadius: 12, padding: 13, marginHorizontal: 18, marginBottom: 10 },
 
-  applyBtn: {
-    backgroundColor: '#0F3D5C',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-  },
+  applyBtn: { backgroundColor: '#0F3D5C', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 7 },
   applyBtnFull: { alignSelf: 'flex-end', marginTop: 10 },
   applyBtnText: { fontSize: 11.5, fontWeight: '700', color: '#fff' },
+  appliedBadge: { backgroundColor: '#EAF2F8', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  appliedBadgeText: { fontSize: 11.5, fontWeight: '700', color: '#0F3D5C' },
 
-  // Shared card text
   hospitalName: { fontSize: 12.8, fontWeight: '700', color: '#14202E', marginBottom: 1 },
   hospitalLoc: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  metaPill: {
-    backgroundColor: '#F5F8FA', // --paper
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  metaPill: { backgroundColor: '#F5F8FA', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   metaText: { fontSize: 10.8, color: '#5C6B7A' },
   shiftPay: { fontSize: 13.5, fontWeight: '800', color: '#0B2D45' },
 });

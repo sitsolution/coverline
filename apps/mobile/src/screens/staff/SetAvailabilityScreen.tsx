@@ -1,100 +1,91 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
+import availabilityService, {
+  AvailabilityDay,
+  ShiftPreferencesOut,
+} from '../../services/availabilityService';
 
 type Props = {
   navigation: NativeStackNavigationProp<CalendarStackParamList, 'SetAvailability'>;
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-type DayState = 'available' | 'off';
-
-const DEFAULT_DAY_STATES: DayState[] = ['available', 'available', 'available', 'available', 'available', 'off', 'off'];
-
-type Toggle = { label: string; sub: string | null; on: boolean };
-
-const DEFAULT_TOGGLES: Toggle[] = [
-  { label: 'Available for Urgent Shifts', sub: 'Get notified for last-minute openings', on: true },
-  { label: 'Available for Night Shifts',  sub: null,                                   on: true  },
-  { label: 'Available for Weekend Shifts', sub: null,                                  on: false },
-];
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function DayCard({
   day,
-  state,
   onToggle,
 }: {
-  day: string;
-  state: DayState;
-  onToggle: (s: DayState) => void;
+  day: AvailabilityDay;
+  onToggle: (weekday: number, isAvailable: boolean) => void;
 }) {
-  const isAvailable = state === 'available';
   return (
     <View style={styles.card}>
       <View style={styles.cardRow}>
-        <Text style={styles.dayName}>{day}</Text>
+        <Text style={styles.dayName}>{day.dayName}</Text>
         <View style={styles.miniSeg}>
           <TouchableOpacity
-            style={[styles.miniSegItem, isAvailable && styles.miniSegActive]}
-            onPress={() => onToggle('available')}
+            style={[styles.miniSegItem, day.isAvailable && styles.miniSegActive]}
+            onPress={() => onToggle(day.weekday, true)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.miniSegText, isAvailable && styles.miniSegTextActive]}>
+            <Text style={[styles.miniSegText, day.isAvailable && styles.miniSegTextActive]}>
               Available
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.miniSegItem, !isAvailable && styles.miniSegActive]}
-            onPress={() => onToggle('off')}
+            style={[styles.miniSegItem, !day.isAvailable && styles.miniSegActive]}
+            onPress={() => onToggle(day.weekday, false)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.miniSegText, !isAvailable && styles.miniSegTextActive]}>
+            <Text style={[styles.miniSegText, !day.isAvailable && styles.miniSegTextActive]}>
               Off
             </Text>
           </TouchableOpacity>
         </View>
       </View>
-      {isAvailable && (
-        <Text style={styles.timeText}>9:00 AM – 6:00 PM</Text>
+      {day.isAvailable && (
+        <Text style={styles.timeText}>{day.startTime} – {day.endTime}</Text>
       )}
     </View>
   );
 }
 
 function ToggleRow({
-  item,
+  label,
+  sub,
+  on,
   isLast,
   onToggle,
 }: {
-  item: Toggle;
+  label: string;
+  sub: string | null;
+  on: boolean;
   isLast: boolean;
   onToggle: () => void;
 }) {
   return (
     <View style={[styles.toggleRow, isLast && styles.toggleRowLast]}>
       <View style={styles.toggleInfo}>
-        <Text style={styles.toggleLabel}>{item.label}</Text>
-        {item.sub ? <Text style={styles.toggleSub}>{item.sub}</Text> : null}
+        <Text style={styles.toggleLabel}>{label}</Text>
+        {sub ? <Text style={styles.toggleSub}>{sub}</Text> : null}
       </View>
       <TouchableOpacity
-        style={[styles.switchTrack, item.on ? styles.switchOn : styles.switchOff]}
+        style={[styles.switchTrack, on ? styles.switchOn : styles.switchOff]}
         onPress={onToggle}
         activeOpacity={0.8}
       >
-        <View style={[styles.switchThumb, item.on ? styles.thumbRight : styles.thumbLeft]} />
+        <View style={[styles.switchThumb, on ? styles.thumbRight : styles.thumbLeft]} />
       </TouchableOpacity>
     </View>
   );
@@ -103,17 +94,66 @@ function ToggleRow({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function SetAvailabilityScreen({ navigation }: Props) {
-  const [dayStates, setDayStates] = useState<DayState[]>(DEFAULT_DAY_STATES);
-  const [toggles, setToggles] = useState<Toggle[]>(DEFAULT_TOGGLES);
-  const [saved, setSaved] = useState(false);
+  const [days, setDays] = useState<AvailabilityDay[]>([]);
+  const [prefs, setPrefs] = useState<ShiftPreferencesOut>({ urgentShifts: true, nightShifts: true, weekendShifts: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const updateDay = (index: number, state: DayState) => {
-    setDayStates(prev => prev.map((s, i) => (i === index ? state : s)));
+  const load = useCallback(async () => {
+    try {
+      const res = await availabilityService.getAvailability();
+      setDays(res.days);
+      setPrefs(res.preferences);
+    } catch {
+      Alert.alert('Error', 'Failed to load availability');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleDay = (weekday: number, isAvailable: boolean) => {
+    setDays(prev => prev.map(d => d.weekday === weekday ? { ...d, isAvailable } : d));
   };
 
-  const flipToggle = (index: number) => {
-    setToggles(prev => prev.map((t, i) => (i === index ? { ...t, on: !t.on } : t)));
+  const togglePref = (key: keyof ShiftPreferencesOut) => {
+    setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await availabilityService.updateAvailability({
+        days: days.map(d => ({ weekday: d.weekday, isAvailable: d.isAvailable })),
+        preferences: prefs,
+      });
+      Alert.alert('Saved', 'Your availability has been updated.');
+      navigation.goBack();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to save availability.';
+      Alert.alert('Error', msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Screen style={styles.container}>
+        <View style={styles.appbar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Text style={styles.backArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.appbarTitle}>Set Your Availability</Text>
+          <View style={styles.spacer} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen style={styles.container}>
@@ -128,36 +168,44 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
         {/* Day cards */}
-        {DAYS.map((day, i) => (
-          <DayCard
-            key={day}
-            day={day}
-            state={dayStates[i]}
-            onToggle={state => updateDay(i, state)}
-          />
+        {days.map(day => (
+          <DayCard key={day.weekday} day={day} onToggle={toggleDay} />
         ))}
 
         {/* Shift Preferences */}
         <Text style={styles.sectionTitle}>Shift Preferences</Text>
         <View style={styles.toggleList}>
-          {toggles.map((t, i) => (
-            <ToggleRow
-              key={t.label}
-              item={t}
-              isLast={i === toggles.length - 1}
-              onToggle={() => flipToggle(i)}
-            />
-          ))}
+          <ToggleRow
+            label="Available for Urgent Shifts"
+            sub="Get notified for last-minute openings"
+            on={prefs.urgentShifts}
+            isLast={false}
+            onToggle={() => togglePref('urgentShifts')}
+          />
+          <ToggleRow
+            label="Available for Night Shifts"
+            sub={null}
+            on={prefs.nightShifts}
+            isLast={false}
+            onToggle={() => togglePref('nightShifts')}
+          />
+          <ToggleRow
+            label="Available for Weekend Shifts"
+            sub={null}
+            on={prefs.weekendShifts}
+            isLast
+            onToggle={() => togglePref('weekendShifts')}
+          />
         </View>
 
         {/* Save button */}
         <TouchableOpacity
-          style={[styles.primaryBtn, saved && styles.primaryBtnSaved]}
-          onPress={() => setSaved(true)}
+          style={styles.primaryBtn}
+          onPress={handleSave}
           activeOpacity={0.85}
-          disabled={saved}
+          disabled={saving}
         >
-          <Text style={styles.primaryBtnText}>{saved ? 'Saved ✓' : 'Save Availability'}</Text>
+          <Text style={styles.primaryBtnText}>{saving ? 'Saving…' : 'Save Availability'}</Text>
         </TouchableOpacity>
 
         {/* View My Calendar link */}
@@ -251,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // Toggle list — no card, rows sit directly on screen bg
+  // Toggle list
   toggleList: {},
   toggleRow: {
     flexDirection: 'row',
@@ -294,7 +342,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 18,
   },
-  primaryBtnSaved: { backgroundColor: '#1F8A5F' },
   primaryBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
   // Calendar link

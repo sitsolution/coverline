@@ -1,43 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import adminShiftsService, { AdminShiftRow } from '../services/adminShiftsService';
 
-type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral';
+type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral' | 'info';
 
-const SHIFTS: {
-  id: string; date: string; time: string; location: string;
-  specialty: string; status: string; statusVariant: BadgeVariant;
-  staff: string; actions: string[];
-}[] = [
-  { id: '#SH-2291', date: '14 Sep', time: '8 PM–8 AM',  location: 'Kothrud',       specialty: 'Emergency Med.', status: 'Open',      statusVariant: 'urgent',  staff: '—',           actions: ['View', 'Assign'] },
-  { id: '#SH-2290', date: '13 Sep', time: '9 AM–5 PM',  location: 'Kalyani Nagar', specialty: 'General Med.',   status: 'Filled',    statusVariant: 'success', staff: 'Dr. A. Rao',  actions: ['View', 'Edit']   },
-  { id: '#SH-2289', date: '12 Sep', time: '9 AM–6 PM',  location: 'Viman Nagar',   specialty: 'Pediatrics',     status: 'Pending',   statusVariant: 'warning', staff: 'Dr. R. Iyer', actions: ['View', 'Edit']   },
-  { id: '#SH-2288', date: '10 Sep', time: '8 AM–4 PM',  location: 'Wakad',         specialty: 'Anaesthesia',    status: 'Completed', statusVariant: 'neutral', staff: 'Dr. K. Shah', actions: ['View']           },
-  { id: '#SH-2287', date: '9 Sep',  time: '9 AM–5 PM',  location: 'Baner',         specialty: 'General Med.',   status: 'Cancelled', statusVariant: 'urgent',  staff: '—',           actions: ['View']           },
-  { id: '#SH-2286', date: '8 Sep',  time: '7 AM–3 PM',  location: 'Kothrud',       specialty: 'Pediatrics',     status: 'Filled',    statusVariant: 'success', staff: 'Dr. R. Iyer', actions: ['View', 'Edit']   },
-  { id: '#SH-2285', date: '7 Sep',  time: '10 AM–6 PM', location: 'Viman Nagar',   specialty: 'Emergency Med.', status: 'Open',      statusVariant: 'urgent',  staff: '—',           actions: ['View', 'Assign'] },
-  { id: '#SH-2284', date: '6 Sep',  time: '8 AM–4 PM',  location: 'Kalyani Nagar', specialty: 'Anaesthesia',    status: 'Completed', statusVariant: 'neutral', staff: 'Dr. K. Shah', actions: ['View']           },
-];
+function statusVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'open': return 'urgent';
+    case 'filled': return 'success';
+    case 'pending': return 'warning';
+    case 'completed': return 'neutral';
+    case 'cancelled': return 'urgent';
+    case 'draft': return 'info';
+    default: return 'neutral';
+  }
+}
+
+function shiftDateLabel(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function shiftTimeRange(start: string, end: string): string {
+  const fmt = (s: string) => new Date(s).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${fmt(start)}–${fmt(end)}`;
+}
 
 const CHIP = 'bg-white border border-line rounded-sm px-[11px] py-[6px] text-[11px] font-semibold text-slate cursor-pointer inline-flex items-center gap-[6px] select-none hover:border-navy-2 transition-colors outline-none appearance-none';
 
 export default function ShiftsManagement() {
   const navigate = useNavigate();
-  const [search, setSearch]       = useState('');
-  const [status, setStatus]       = useState('');
-  const [location, setLocation]   = useState('');
+  const [shifts, setShifts] = useState<AdminShiftRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [location, setLocation] = useState('');
   const [specialty, setSpecialty] = useState('');
 
-  const filtered = SHIFTS.filter((s) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || s.id.toLowerCase().includes(q) || s.location.toLowerCase().includes(q) || s.specialty.toLowerCase().includes(q) || s.staff.toLowerCase().includes(q);
-    const matchStatus   = !status   || s.status   === status;
-    const matchLocation = !location || s.location === location;
-    const matchSpecialty = !specialty || s.specialty === specialty;
-    return matchSearch && matchStatus && matchLocation && matchSpecialty;
-  });
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await adminShiftsService.listShifts({
+        search: search || undefined,
+        status: status || undefined,
+        location: location || undefined,
+        specialty: specialty || undefined,
+        limit: 50,
+      });
+      setShifts(res.items);
+      setTotal(res.total);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, [search, status, location, specialty]);
+
+  // debounce search
+  useEffect(() => {
+    const t = setTimeout(() => load(), 500);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  const hasFilters = search || status || location || specialty;
 
   return (
     <Layout>
@@ -45,7 +71,7 @@ export default function ShiftsManagement() {
       <div className="flex items-center justify-between mb-1">
         <div>
           <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-[2px]">Shift Management</h1>
-          <p className="text-[11.5px] text-slate mb-4">86 shifts this month</p>
+          <p className="text-[11.5px] text-slate mb-4">{loading ? '…' : `${total} shifts`}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/calendar" className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] bg-transparent">
@@ -68,17 +94,15 @@ export default function ShiftsManagement() {
         />
         <select value={status} onChange={(e) => setStatus(e.target.value)} className={CHIP}>
           <option value="">Status ▾</option>
-          {['Open', 'Filled', 'Pending', 'Completed', 'Cancelled'].map((o) => <option key={o}>{o}</option>)}
-        </select>
-        <select value={location} onChange={(e) => setLocation(e.target.value)} className={CHIP}>
-          <option value="">Location ▾</option>
-          {['Kothrud', 'Kalyani Nagar', 'Viman Nagar', 'Wakad', 'Baner'].map((o) => <option key={o}>{o}</option>)}
+          {['open', 'pending', 'filled', 'completed', 'cancelled', 'draft'].map((o) => (
+            <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+          ))}
         </select>
         <select value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={CHIP}>
           <option value="">Specialty ▾</option>
-          {['Emergency Med.', 'General Med.', 'Pediatrics', 'Anaesthesia'].map((o) => <option key={o}>{o}</option>)}
+          {['Emergency Medicine', 'General Medicine', 'Pediatrics', 'Anaesthesia'].map((o) => <option key={o}>{o}</option>)}
         </select>
-        {(status || location || specialty || search) && (
+        {hasFilters && (
           <button
             onClick={() => { setSearch(''); setStatus(''); setLocation(''); setSpecialty(''); }}
             className="text-[11px] font-semibold text-urgent hover:underline"
@@ -104,24 +128,26 @@ export default function ShiftsManagement() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={8} className="text-center text-[12px] text-slate py-8">Loading…</td></tr>
+              ) : shifts.length === 0 ? (
                 <tr><td colSpan={8} className="text-center text-[12px] text-slate py-8">No shifts match your filters.</td></tr>
-              ) : filtered.map((s) => (
+              ) : shifts.map((s) => (
                 <tr key={s.id}>
-                  <td className="font-semibold">{s.id}</td>
-                  <td>{s.date}</td>
-                  <td>{s.time}</td>
+                  <td className="font-semibold">{s.reference}</td>
+                  <td>{shiftDateLabel(s.startTime)}</td>
+                  <td>{shiftTimeRange(s.startTime, s.endTime)}</td>
                   <td>{s.location}</td>
                   <td>{s.specialty}</td>
-                  <td><Badge label={s.status} variant={s.statusVariant} /></td>
-                  <td className={s.staff === '—' ? 'text-slate' : ''}>{s.staff}</td>
+                  <td><Badge label={s.displayStatus} variant={statusVariant(s.status)} /></td>
+                  <td className={s.assignedStaff.length === 0 ? 'text-slate' : ''}>
+                    {s.assignedStaff.length > 0 ? s.assignedStaff.join(', ') : '—'}
+                  </td>
                   <td className="text-[12px]">
-                    {s.actions.map((a, i) => (
-                      <span key={a}>
-                        {i > 0 && ' · '}
-                        <Link to="/shifts/2291" className="text-navy-2 font-semibold hover:underline">{a}</Link>
-                      </span>
-                    ))}
+                    <Link to={`/shifts/${s.id}`} className="text-navy-2 font-semibold hover:underline">View</Link>
+                    {s.status === 'open' || s.status === 'pending' ? (
+                      <> · <Link to={`/shifts/${s.id}`} className="text-navy-2 font-semibold hover:underline">Assign</Link></>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -129,7 +155,7 @@ export default function ShiftsManagement() {
           </table>
         </div>
         <p className="text-[11px] text-slate text-center mt-[14px]">
-          {filtered.length} of {SHIFTS.length} shifts
+          {shifts.length} of {total} shifts
         </p>
       </Panel>
     </Layout>

@@ -1,17 +1,107 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import adminBookingsService, { BookingDetail, BookingMessageOut } from '../services/adminBookingsService';
+
+type BadgeVariant = 'success' | 'warning' | 'urgent' | 'info' | 'neutral';
+
+function statusVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'confirmed': return 'success';
+    case 'upcoming': return 'info';
+    case 'pending': return 'warning';
+    case 'completed': return 'neutral';
+    case 'cancelled': return 'urgent';
+    default: return 'neutral';
+  }
+}
+
+function shiftLabel(booking: BookingDetail): string {
+  const d = new Date(booking.shiftStart);
+  return `${booking.shiftLabel} · ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
+
+function msgTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' +
+    d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
 
 export default function BookingDetails() {
+  const { id } = useParams<{ id: string }>();
+  const [booking, setBooking] = useState<BookingDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const data = await adminBookingsService.getBooking(parseInt(id));
+      setBooking(data);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || !id || sending) return;
+    setSending(true);
+    try {
+      const msg: BookingMessageOut = await adminBookingsService.sendMessage(parseInt(id), message.trim());
+      setBooking(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
+      setMessage('');
+    } catch {} finally {
+      setSending(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!id || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const updated = await adminBookingsService.completeBooking(parseInt(id));
+      setBooking(updated);
+    } catch {} finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!id || actionLoading) return;
+    const reason = window.prompt('Reason for cancellation (optional):') ?? undefined;
+    setActionLoading(true);
+    try {
+      const updated = await adminBookingsService.cancelBooking(parseInt(id), reason || undefined);
+      setBooking(updated);
+    } catch {} finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <Layout><p className="text-slate text-[12px]">Loading…</p></Layout>;
+  }
+
+  if (!booking) {
+    return <Layout><p className="text-slate text-[12px]">Booking not found.</p></Layout>;
+  }
+
   return (
     <Layout>
       {/* Header */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-[2px]">
-          <h1 className="font-display font-extrabold text-[16.5px] text-ink">Booking #BK-8821</h1>
-          <Badge label="Confirmed" variant="success" />
+          <h1 className="font-display font-extrabold text-[16.5px] text-ink">Booking {booking.reference}</h1>
+          <Badge label={booking.displayStatus} variant={statusVariant(booking.status)} />
         </div>
-        <p className="text-[11.5px] text-slate">ER Night Cover · Sep 14, 8 PM–8 AM · Kothrud, Pune</p>
+        <p className="text-[11.5px] text-slate">{shiftLabel(booking)} · {booking.facilityName}</p>
       </div>
 
       {/* Two-column layout */}
@@ -19,74 +109,106 @@ export default function BookingDetails() {
         {/* Left */}
         <div>
           <Panel title="Timeline">
-            {[
-              { text: 'Shift created — Sep 8', done: true },
-              { text: 'Doctor applied — Sep 10', done: true },
-              { text: 'Booking confirmed — Sep 12', done: true },
-              { text: 'Shift completed — pending', done: false },
-              { text: 'Payment processed — pending', done: false },
-            ].map((item) => (
+            {booking.timeline.map((item) => (
               <div
-                key={item.text}
+                key={item.label}
                 className={`text-[11.5px] pl-3 ml-1 py-[6px] border-l-2 ${
                   item.done ? 'border-success text-ink' : 'border-line text-slate-2'
                 }`}
               >
-                {item.text}
+                {item.label}{item.at ? ` — ${new Date(item.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
               </div>
             ))}
           </Panel>
 
           <Panel title="Communication Log">
-            {[
-              {
-                initials: 'AR',
-                message: 'Confirmed availability for the night shift',
-                sub: 'Dr. Ananya Rao · Sep 12, 6:40 PM',
-              },
-              {
-                initials: 'PM',
-                message: 'Sent parking & entry instructions',
-                sub: 'Admin · Sep 13, 9:10 AM',
-              },
-            ].map((log) => (
-              <div key={log.sub} className="flex gap-[10px] items-start py-[11px] border-b border-line last:border-0">
-                <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center font-extrabold text-[12px] text-navy flex-shrink-0">
-                  {log.initials}
+            <div className="max-h-[280px] overflow-y-auto">
+              {booking.messages.length === 0 ? (
+                <p className="text-[12px] text-slate text-center py-4">No messages yet.</p>
+              ) : booking.messages.map((log) => (
+                <div key={log.id} className="flex gap-[10px] items-start py-[11px] border-b border-line last:border-0">
+                  <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center font-extrabold text-[12px] text-navy flex-shrink-0">
+                    {log.authorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-ink font-medium">{log.body}</p>
+                    <p className="text-[11px] text-slate mt-[2px]">{log.authorName} · {msgTime(log.createdAt)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[12px] text-ink font-medium">{log.message}</p>
-                  <p className="text-[11px] text-slate mt-[2px]">{log.sub}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="flex gap-2 mt-3">
+              <input
+                type="text"
+                placeholder="Type a message…"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="flex-1 px-3 py-[9px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={sending}
+                className="bg-navy text-white text-[12px] font-bold px-4 py-[9px] rounded-[9px] disabled:opacity-60"
+              >
+                Send
+              </button>
+            </div>
           </Panel>
         </div>
 
         {/* Right */}
         <div>
-          <Panel title="Doctor">
+          <Panel title="Staff Member">
             <div className="flex gap-[10px] items-center">
               <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center font-extrabold text-[12px] text-navy flex-shrink-0">
-                AR
+                {booking.staffInitials}
               </div>
               <div>
-                <p className="font-bold text-[12.5px] text-ink">Dr. Ananya Rao</p>
-                <p className="text-[11px] text-slate">Emergency Med. · 4.8★</p>
+                <p className="font-bold text-[12.5px] text-ink">{booking.staffName}</p>
+                <p className="text-[11px] text-slate">{booking.staffSpecialty ?? '—'} · {booking.staffRating.toFixed(1)}★</p>
+                {booking.staffEmail && <p className="text-[11px] text-slate">{booking.staffEmail}</p>}
               </div>
             </div>
           </Panel>
 
+          <Panel title="Shift Details">
+            {[
+              `Specialty: ${booking.specialty}`,
+              `Pay Rate: ₹${booking.payRate.toLocaleString('en-IN')}`,
+              `Duration: ${booking.durationHours}h`,
+            ].map((row) => (
+              <div key={row} className="text-[11.5px] text-slate py-[5px] border-b border-line last:border-0">{row}</div>
+            ))}
+          </Panel>
+
           <Panel title="Actions">
-            <button className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2">
-              Contact Doctor
-            </button>
-            <button className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2">
-              Mark as Completed
-            </button>
-            <button className="w-full bg-urgent-bg text-urgent text-[13px] font-bold px-4 py-[11px] rounded-[10px]">
-              Cancel Booking
-            </button>
+            {booking.staffEmail && (
+              <a
+                href={`mailto:${booking.staffEmail}`}
+                className="block w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 text-center"
+              >
+                Contact Staff
+              </a>
+            )}
+            {['confirmed', 'upcoming'].includes(booking.status) && (
+              <button
+                onClick={handleComplete}
+                disabled={actionLoading}
+                className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 disabled:opacity-60"
+              >
+                Mark as Completed
+              </button>
+            )}
+            {['pending', 'confirmed', 'upcoming'].includes(booking.status) && (
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading}
+                className="w-full bg-urgent-bg text-urgent text-[13px] font-bold px-4 py-[11px] rounded-[10px] disabled:opacity-60"
+              >
+                Cancel Booking
+              </button>
+            )}
           </Panel>
         </div>
       </div>

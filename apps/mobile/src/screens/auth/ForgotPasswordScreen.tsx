@@ -13,6 +13,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import BackButton from '../../components/ui/BackButton';
+import authService from '../../services/authService';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
@@ -21,12 +22,17 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email);
       setSent(true);
-    }, 1000);
+    } catch {
+      // API always returns success for security — treat errors the same way
+      setSent(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,21 +86,12 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
-  header: {
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 8,
-  },
+  header: { paddingTop: 14, paddingHorizontal: 18, paddingBottom: 8 },
   body: { flex: 1, paddingHorizontal: 18, paddingTop: 20 },
   heading: { fontSize: 19, fontWeight: '800', color: '#14202E', marginBottom: 12 },
   description: { fontSize: 12, color: '#5C6B7A', lineHeight: 22, marginBottom: 32 },
   btn: { marginBottom: 16 },
-  successBox: {
-    backgroundColor: '#ECFDF5',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 24,
-  },
+  successBox: { backgroundColor: '#ECFDF5', borderRadius: 10, padding: 16, marginBottom: 24 },
   successText: { color: '#10B981', fontSize: 14, fontWeight: '600' },
   backLink: { alignItems: 'center', marginTop: 18 },
   backLinkText: { fontSize: 11.5, color: '#175E86', fontWeight: '600', textAlign: 'center' },

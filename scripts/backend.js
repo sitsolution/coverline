@@ -25,7 +25,7 @@ const MODES = {
 const mode = process.argv.find((arg) => arg in MODES);
 const ARGS = mode
   ? MODES[mode]
-  : ['-m', 'uvicorn', 'app.main:app', '--reload', '--port', '8000'];
+  : ['-m', 'uvicorn', 'app.main:app', '--reload', '--host', '0.0.0.0', '--port', '8000'];
 
 const proc = spawn(PYTHON, ARGS, { cwd: BACKEND, stdio: 'inherit', shell: false });
 

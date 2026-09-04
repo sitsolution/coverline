@@ -1,46 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import adminStaffService, { StaffRow } from '../services/adminStaffService';
 
 type BadgeVariant = 'success' | 'warning' | 'neutral' | 'info';
 
-const STAFF: {
-  name: string; role: string; specialty: string; location: string;
-  availability: string; availVariant: BadgeVariant;
-  rating: string; ratingNum: number;
-  verification: string; verVariant: BadgeVariant;
-  shifts: number;
-}[] = [
-  { name: 'Dr. Ananya Rao',    role: 'Doctor',        specialty: 'Emergency Med.',  location: 'Pune',   availability: 'Available',   availVariant: 'success', rating: '4.8★', ratingNum: 4.8, verification: 'Verified', verVariant: 'success', shifts: 24 },
-  { name: 'Sneha Kulkarni RN', role: 'Nurse',         specialty: 'ICU Nursing',     location: 'Pune',   availability: 'Available',   availVariant: 'success', rating: '4.7★', ratingNum: 4.7, verification: 'Verified', verVariant: 'success', shifts: 38 },
-  { name: 'Vikram Nair',       role: 'OT Technician', specialty: 'Cardiac OT',      location: 'Pune',   availability: 'Available',   availVariant: 'success', rating: '4.6★', ratingNum: 4.6, verification: 'Verified', verVariant: 'success', shifts: 29 },
-  { name: 'Meena Pawar',       role: 'Housekeeping',  specialty: 'OT Housekeeping', location: 'Pune',   availability: 'Unavailable', availVariant: 'neutral', rating: '4.9★', ratingNum: 4.9, verification: 'Pending',  verVariant: 'warning', shifts: 42 },
-  { name: 'Dr. Karan Shah',    role: 'Doctor',        specialty: 'Anaesthesia',     location: 'Pune',   availability: 'Available',   availVariant: 'success', rating: '4.5★', ratingNum: 4.5, verification: 'Verified', verVariant: 'success', shifts: 31 },
-  { name: 'Dr. Riya Iyer',     role: 'Doctor',        specialty: 'Pediatrics',      location: 'Mumbai', availability: 'Unavailable', availVariant: 'neutral', rating: '4.9★', ratingNum: 4.9, verification: 'Pending',  verVariant: 'warning', shifts: 18 },
-  { name: 'Farhan Ali RN',     role: 'Nurse',         specialty: 'Emergency Nursing',location: 'Mumbai', availability: 'Available',   availVariant: 'success', rating: '4.4★', ratingNum: 4.4, verification: 'Verified', verVariant: 'success', shifts: 21 },
-  { name: 'Pooja Desai',       role: 'Housekeeping',  specialty: 'Ward Housekeeping',location: 'Pune',   availability: 'Available',   availVariant: 'success', rating: '4.3★', ratingNum: 4.3, verification: 'Pending',  verVariant: 'warning', shifts: 15 },
-];
+function verificationVariant(v: string): BadgeVariant {
+  if (v === 'Verified') return 'success';
+  if (v === 'Pending') return 'warning';
+  return 'neutral';
+}
 
 const CHIP = 'bg-white border border-line rounded-sm px-[11px] py-[6px] text-[11px] font-semibold text-slate cursor-pointer inline-flex items-center gap-[6px] select-none hover:border-navy-2 transition-colors outline-none appearance-none';
 
 export default function StaffDatabase() {
-  const [search, setSearch]             = useState('');
-  const [role, setRole]                 = useState('');
+  const [staff, setStaff] = useState<StaffRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [role, setRole] = useState('');
   const [availability, setAvailability] = useState('');
   const [verification, setVerification] = useState('');
-  const [minRating, setMinRating]       = useState('');
+  const [minRating, setMinRating] = useState('');
 
-  const filtered = STAFF.filter((s) => {
-    const q = search.toLowerCase();
-    const matchSearch       = !q || s.name.toLowerCase().includes(q) || s.specialty.toLowerCase().includes(q) || s.location.toLowerCase().includes(q);
-    const matchRole         = !role         || s.role         === role;
-    const matchAvailability = !availability || s.availability === availability;
-    const matchVerification = !verification || s.verification === verification;
-    const matchRating       = !minRating    || s.ratingNum >= parseFloat(minRating);
-    return matchSearch && matchRole && matchAvailability && matchVerification && matchRating;
-  });
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await adminStaffService.listStaff({
+        search: search || undefined,
+        role: role || undefined,
+        availability: availability || undefined,
+        verification: verification || undefined,
+        minRating: minRating ? parseFloat(minRating) : undefined,
+        limit: 50,
+      });
+      setStaff(res.items);
+      setTotal(res.total);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, [search, role, availability, verification, minRating]);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(), 400);
+    return () => clearTimeout(t);
+  }, [load]);
 
   const hasFilters = search || role || availability || verification || minRating;
 
@@ -50,7 +56,7 @@ export default function StaffDatabase() {
       <div className="flex items-center justify-between mb-1">
         <div>
           <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-[2px]">Locum Staff</h1>
-          <p className="text-[11.5px] text-slate mb-4">148 active staff · Doctors, Nurses, OT Technicians &amp; Housekeeping</p>
+          <p className="text-[11.5px] text-slate mb-4">{loading ? '…' : `${total} staff members`}</p>
         </div>
         <button className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]">
           + Add New Staff
@@ -68,7 +74,7 @@ export default function StaffDatabase() {
         />
         <select value={role} onChange={(e) => setRole(e.target.value)} className={CHIP}>
           <option value="">Role ▾</option>
-          {['Doctor', 'Nurse', 'OT Technician', 'Housekeeping'].map((o) => <option key={o}>{o}</option>)}
+          {['doctor', 'nurse', 'ot_tech', 'housekeeping'].map((o) => <option key={o} value={o}>{o.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
         </select>
         <select value={availability} onChange={(e) => setAvailability(e.target.value)} className={CHIP}>
           <option value="">Availability ▾</option>
@@ -76,7 +82,7 @@ export default function StaffDatabase() {
         </select>
         <select value={verification} onChange={(e) => setVerification(e.target.value)} className={CHIP}>
           <option value="">Verification ▾</option>
-          {['Verified', 'Pending'].map((o) => <option key={o}>{o}</option>)}
+          {['Verified', 'Pending', 'Rejected'].map((o) => <option key={o}>{o}</option>)}
         </select>
         <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className={CHIP}>
           <option value="">Rating ▾</option>
@@ -111,22 +117,22 @@ export default function StaffDatabase() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={9} className="text-center text-[12px] text-slate py-8">Loading…</td></tr>
+              ) : staff.length === 0 ? (
                 <tr><td colSpan={9} className="text-center text-[12px] text-slate py-8">No staff match your filters.</td></tr>
-              ) : filtered.map((s) => (
-                <tr key={s.name}>
+              ) : staff.map((s) => (
+                <tr key={s.id}>
                   <td className="font-semibold">{s.name}</td>
-                  <td><Badge label={s.role} variant="info" /></td>
-                  <td>{s.specialty}</td>
-                  <td>{s.location}</td>
-                  <td><Badge label={s.availability} variant={s.availVariant} /></td>
-                  <td>{s.rating}</td>
-                  <td><Badge label={s.verification} variant={s.verVariant} /></td>
-                  <td>{s.shifts}</td>
+                  <td><Badge label={s.roleLabel} variant="info" /></td>
+                  <td>{s.specialty ?? '—'}</td>
+                  <td>{s.location ?? '—'}</td>
+                  <td><Badge label={s.availabilityLabel} variant={s.isAvailable ? 'success' : 'neutral'} /></td>
+                  <td>{s.rating.toFixed(1)}★</td>
+                  <td><Badge label={s.verificationStatus} variant={verificationVariant(s.verificationStatus)} /></td>
+                  <td>{s.shiftsCompleted}</td>
                   <td className="text-[12px]">
-                    <Link to="/staff/1" className="text-navy-2 font-semibold hover:underline">Profile</Link>
-                    {' · '}
-                    <span className="text-navy-2 font-semibold cursor-pointer hover:underline">Contact</span>
+                    <Link to={`/staff/${s.id}`} className="text-navy-2 font-semibold hover:underline">Profile</Link>
                   </td>
                 </tr>
               ))}
@@ -134,7 +140,7 @@ export default function StaffDatabase() {
           </table>
         </div>
         <p className="text-[11px] text-slate text-center mt-[14px]">
-          {filtered.length} of {STAFF.length} staff members
+          {staff.length} of {total} staff members
         </p>
       </Panel>
     </Layout>

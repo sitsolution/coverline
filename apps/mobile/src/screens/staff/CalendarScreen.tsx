@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
+import calendarService, { CalendarDay } from '../../services/calendarService';
+import { ShiftItem } from '../../services/userService';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Props = {
   navigation: NativeStackNavigationProp<CalendarStackParamList, 'CalendarMain'>;
@@ -29,7 +33,7 @@ function daysInMonth(year: number, month: number) {
 }
 
 function firstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay(); // 0=Sun
+  return new Date(year, month, 1).getDay();
 }
 
 function buildCells(year: number, month: number): (number | null)[] {
@@ -45,37 +49,24 @@ function buildCells(year: number, month: number): (number | null)[] {
 
 type DotColor = 'g' | 'y' | 'gr';
 
-type ShiftRow = {
-  initials: string;
-  title: string;
-  sub: string;
-  badgeLabel: string;
-  badgeType: 'success' | 'warning';
-};
+function markerToDot(marker: string): DotColor {
+  if (marker === 'confirmed') return 'g';
+  if (marker === 'pending') return 'y';
+  return 'gr';
+}
 
-// ─── Static data (design reference) ─────────────────────────────────────────
+function shiftTimeLabel(shift: ShiftItem): string {
+  const start = new Date(shift.startTime);
+  const end = new Date(shift.endTime);
+  const fmt = (d: Date) =>
+    d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${fmt(start)} – ${fmt(end)} · ${shift.specialty}`;
+}
 
-// Marks for September 2026
-const SEP_MARKS: Record<number, DotColor> = {
-  3: 'g', 6: 'y', 11: 'g', 14: 'gr', 18: 'y', 22: 'g',
-};
-
-const UPCOMING: ShiftRow[] = [
-  {
-    initials: 'AH',
-    title: 'Apollo Hospital · Sep 14',
-    sub: '8 PM – 8 AM · Emergency Med.',
-    badgeLabel: 'Confirmed',
-    badgeType: 'success',
-  },
-  {
-    initials: 'SJ',
-    title: 'St. Joseph Hospital · Sep 18',
-    sub: '9 AM – 5 PM · General Med.',
-    badgeLabel: 'Pending',
-    badgeType: 'warning',
-  },
-];
+function shiftDateLabel(shift: ShiftItem): string {
+  const d = new Date(shift.startTime);
+  return `${shift.facilityName} · ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -88,9 +79,10 @@ type DayCellProps = {
   day: number | null;
   isToday: boolean;
   mark?: DotColor;
+  cellSize: number;
 };
 
-function DayCell({ day, isToday, mark, cellSize }: DayCellProps & { cellSize: number }) {
+function DayCell({ day, isToday, mark, cellSize }: DayCellProps) {
   const sizeStyle = { width: cellSize, height: cellSize };
   if (day === null) return <View style={sizeStyle} />;
   return (
@@ -104,20 +96,20 @@ function DayCell({ day, isToday, mark, cellSize }: DayCellProps & { cellSize: nu
   );
 }
 
-function ShiftListRow({ item }: { item: ShiftRow }) {
-  const ok = item.badgeType === 'success';
+function ShiftListRow({ item }: { item: ShiftItem }) {
+  const isConfirmed = item.applicationStatus === 'confirmed';
   return (
     <View style={styles.listRow}>
       <View style={styles.listAvatar}>
-        <Text style={styles.listAvatarText}>{item.initials}</Text>
+        <Text style={styles.listAvatarText}>{item.facilityInitials}</Text>
       </View>
       <View style={styles.listInfo}>
-        <Text style={styles.listTitle}>{item.title}</Text>
-        <Text style={styles.listSub}>{item.sub}</Text>
+        <Text style={styles.listTitle}>{shiftDateLabel(item)}</Text>
+        <Text style={styles.listSub}>{shiftTimeLabel(item)}</Text>
       </View>
-      <View style={[styles.badge, ok ? styles.badgeSuccess : styles.badgeWarning]}>
-        <Text style={[styles.badgeText, ok ? styles.badgeSuccessText : styles.badgeWarningText]}>
-          {item.badgeLabel}
+      <View style={[styles.badge, isConfirmed ? styles.badgeSuccess : styles.badgeWarning]}>
+        <Text style={[styles.badgeText, isConfirmed ? styles.badgeSuccessText : styles.badgeWarningText]}>
+          {isConfirmed ? 'Confirmed' : 'Pending'}
         </Text>
       </View>
     </View>
@@ -130,16 +122,35 @@ export default function CalendarScreen({ navigation }: Props) {
   const { width: SCREEN_W } = useWindowDimensions();
   const CELL_SIZE = Math.floor((SCREEN_W - 36 - 30) / 7);
 
-  // Start at September 2026 (design reference)
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(8); // 0-indexed: 8 = September
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [marks, setMarks] = useState<Record<number, DotColor>>({});
+  const [upcoming, setUpcoming] = useState<ShiftItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async (y: number, m: number) => {
+    setLoading(true);
+    try {
+      const res = await calendarService.getCalendar(y, m + 1); // API is 1-indexed
+      const markMap: Record<number, DotColor> = {};
+      res.days.forEach((cd: CalendarDay) => {
+        const day = new Date(cd.day).getDate();
+        markMap[day] = markerToDot(cd.marker);
+      });
+      setMarks(markMap);
+      setUpcoming(res.upcoming);
+    } catch {
+      // Silently fail, show empty calendar
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(year, month); }, [load, year, month]));
 
   const cells = buildCells(year, month);
-
-  // "Today" = day 14 in Sep 2026 for design; otherwise no highlight
-  const todayMarker = year === 2026 && month === 8 ? 14 : -1;
-
-  const marks = year === 2026 && month === 8 ? SEP_MARKS : {};
+  const todayDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : -1;
 
   const goPrev = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -186,17 +197,21 @@ export default function CalendarScreen({ navigation }: Props) {
         </View>
 
         {/* Calendar grid */}
-        <View style={styles.calGrid}>
-          {cells.map((day, i) => (
-            <DayCell
-              key={i}
-              day={day}
-              isToday={day === todayMarker}
-              mark={day ? (marks as Record<number, DotColor>)[day] : undefined}
-              cellSize={CELL_SIZE}
-            />
-          ))}
-        </View>
+        {loading ? (
+          <ActivityIndicator color="#0F3D5C" style={{ marginVertical: 40 }} />
+        ) : (
+          <View style={styles.calGrid}>
+            {cells.map((day, i) => (
+              <DayCell
+                key={i}
+                day={day}
+                isToday={day === todayDay}
+                mark={day ? marks[day] : undefined}
+                cellSize={CELL_SIZE}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Legend */}
         <View style={styles.legendRow}>
@@ -207,9 +222,11 @@ export default function CalendarScreen({ navigation }: Props) {
 
         {/* Upcoming Shifts */}
         <Text style={styles.sectionTitle}>Upcoming Shifts</Text>
-        {UPCOMING.map((item, i) => (
-          <ShiftListRow key={i} item={item} />
-        ))}
+        {upcoming.length === 0 ? (
+          <Text style={styles.emptyText}>No upcoming shifts.</Text>
+        ) : (
+          upcoming.map((item) => <ShiftListRow key={item.id} item={item} />)
+        )}
       </ScrollView>
     </Screen>
   );
@@ -277,7 +294,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DCE4EA',
   },
-  cellEmpty: {},
   cellToday: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
   cellText: { fontSize: 11, color: '#14202E' },
   cellTextToday: { color: '#fff', fontWeight: '800' },
@@ -290,6 +306,8 @@ const styles = StyleSheet.create({
 
   // Section title
   sectionTitle: { fontSize: 13, fontWeight: '800', color: '#14202E', marginBottom: 10 },
+
+  emptyText: { fontSize: 12, color: '#8697A6', textAlign: 'center', paddingVertical: 14 },
 
   // Shift list
   listRow: {

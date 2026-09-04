@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import userService from '../../services/userService';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -99,12 +102,53 @@ function DateField({ label, value, onChange }: {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function EditProfileScreen({ navigation }: Props) {
-  const [name,       setName]       = useState('Dr. Ananya Rao');
-  const [email,      setEmail]      = useState('ananya.rao@email.com');
-  const [phone,      setPhone]      = useState('+91 98xxxxxx21');
-  const [dob,        setDob]        = useState(new Date(1992, 5, 14)); // 14 Jun 1992
+  const [name,       setName]       = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [dob,        setDob]        = useState(new Date(1992, 5, 14));
   const [specialty,  setSpecialty]  = useState(SPECIALTIES[0]);
   const [experience, setExperience] = useState(EXPERIENCE[2]);
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await userService.getMe();
+        setName(data.user.fullName);
+        setPhone(data.user.phone ?? '');
+        if (data.user.dateOfBirth) setDob(new Date(data.user.dateOfBirth));
+        if (data.profile?.specialty) setSpecialty(data.profile.specialty);
+        if (data.profile?.experience) setExperience(data.profile.experience);
+      } catch {} finally { setLoading(false); }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await userService.updateMe({
+        fullName: name,
+        phone,
+        dateOfBirth: dob.toISOString().split('T')[0],
+        specialty,
+        experience,
+      });
+      navigation.goBack();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to save profile.';
+      Alert.alert('Error', msg);
+    } finally { setSaving(false); }
+  };
+
+  if (loading) {
+    return (
+      <Screen style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen style={styles.container}>
@@ -130,7 +174,6 @@ export default function EditProfileScreen({ navigation }: Props) {
 
         {/* Fields */}
         <InputField label="Full Name"      value={name}  onChangeText={setName} />
-        <InputField label="Email Address"  value={email} onChangeText={setEmail} keyboardType="email-address" />
         <InputField label="Phone Number"   value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <DateField  label="Date of Birth"  value={dob}   onChange={setDob} />
         <PickerField label="Specialty"            options={SPECIALTIES} value={specialty}  onSelect={setSpecialty} />
@@ -138,19 +181,11 @@ export default function EditProfileScreen({ navigation }: Props) {
 
         {/* Cancel / Save buttons */}
         <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={styles.outlineBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={styles.outlineBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
             <Text style={styles.outlineBtnText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>Save</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving}>
+            <Text style={styles.primaryBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

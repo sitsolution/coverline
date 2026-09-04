@@ -1,92 +1,154 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import KpiCard from '../components/ui/KpiCard';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
+import adminBillingService, { InvoiceRow, InvoiceListResponse } from '../services/adminBillingService';
 
-const TABS = ['All Invoices', 'Unpaid', 'Paid', 'Overdue'];
+const TABS = ['all', 'unpaid', 'paid', 'overdue'];
+const TAB_LABELS: Record<string, string> = { all: 'All Invoices', unpaid: 'Unpaid', paid: 'Paid', overdue: 'Overdue' };
 
-const INVOICES = [
-  {
-    id: 'INV-3381',
-    date: '1 Sep',
-    amount: '₹92,000',
-    status: 'Unpaid',
-    statusVariant: 'warning' as const,
-    due: '30 Sep',
-    actions: ['View', 'Pay Now'],
-  },
-  {
-    id: 'INV-3370',
-    date: '1 Aug',
-    amount: '₹78,400',
-    status: 'Paid',
-    statusVariant: 'success' as const,
-    due: '30 Aug',
-    actions: ['View', 'Download'],
-  },
-  {
-    id: 'INV-3355',
-    date: '1 Jul',
-    amount: '₹1,05,000',
-    status: 'Overdue',
-    statusVariant: 'urgent' as const,
-    due: '30 Jul',
-    actions: ['View', 'Pay Now'],
-  },
-];
+type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral';
+
+function statusVariant(status: string): BadgeVariant {
+  if (status === 'paid') return 'success';
+  if (status === 'unpaid') return 'warning';
+  if (status === 'overdue') return 'urgent';
+  return 'neutral';
+}
+
+function dateLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function deltaToneColor(tone: string): string {
+  if (tone === 'positive') return '#1F8A5F';
+  if (tone === 'negative') return '#C0392B';
+  if (tone === 'warning') return '#C97A2B';
+  return '#5C6B7A';
+}
 
 export default function InvoicesBilling() {
-  const [activeTab, setActiveTab] = useState('All Invoices');
+  const [activeTab, setActiveTab] = useState('all');
+  const [result, setResult] = useState<InvoiceListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [payingId, setPayingId] = useState<number | null>(null);
+
+  const load = useCallback(async (tab: string) => {
+    setLoading(true);
+    try {
+      const res = await adminBillingService.listInvoices(tab);
+      setResult(res);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(activeTab); }, [load, activeTab]);
+
+  const handlePay = async (invoice: InvoiceRow) => {
+    if (payingId) return;
+    setPayingId(invoice.id);
+    try {
+      await adminBillingService.payInvoice(invoice.id);
+      await load(activeTab);
+    } catch {} finally {
+      setPayingId(null);
+    }
+  };
+
+  const tabLabels = TABS.map(t =>
+    result?.counts[t] != null ? `${TAB_LABELS[t]} (${result.counts[t]})` : TAB_LABELS[t]
+  );
+
+  const paymentMethod = result?.paymentMethod;
 
   return (
     <Layout>
-      {/* Header */}
       <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-4">Invoices &amp; Billing</h1>
 
       {/* KPI Row */}
       <div className="grid grid-cols-4 gap-3 mb-[18px]">
-        <KpiCard label="Total Outstanding" value="₹1,84,200" delta="3 invoices" deltaColor="#C0392B" />
-        <KpiCard label="Paid This Month" value="₹6,42,000" delta="12 invoices" />
-        <KpiCard label="Next Payment Due" value="₹92,000" delta="Due 30 Sep" deltaColor="#C97A2B" />
-        <KpiCard label="Payment Method" value="HDFC ····2291" delta="Primary" />
+        {loading
+          ? Array(4).fill(null).map((_, i) => <KpiCard key={i} label="…" value="—" delta="" />)
+          : (result?.kpis ?? []).map(k => (
+              <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta} deltaColor={deltaToneColor(k.deltaTone)} />
+            ))
+        }
       </div>
 
-      <TabNav tabs={TABS} active={activeTab} onChange={setActiveTab} />
+      {paymentMethod && (
+        <p className="text-[11.5px] text-slate mb-3">
+          Payment method: {paymentMethod.label} ····{paymentMethod.last4}
+        </p>
+      )}
+
+      <TabNav
+        tabs={tabLabels}
+        active={tabLabels[TABS.indexOf(activeTab)]}
+        onChange={(label) => {
+          const idx = tabLabels.indexOf(label);
+          if (idx >= 0) setActiveTab(TABS[idx]);
+        }}
+      />
 
       <Panel>
-        <div className="overflow-hidden rounded-[10px] border border-line"><table className="adm-table">
-          <thead>
-            <tr>
-              <th>Invoice #</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Due Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {INVOICES.map((inv) => (
-              <tr key={inv.id}>
-                <td className="font-semibold">{inv.id}</td>
-                <td>{inv.date}</td>
-                <td className="font-semibold">{inv.amount}</td>
-                <td><Badge label={inv.status} variant={inv.statusVariant} /></td>
-                <td>{inv.due}</td>
-                <td className="text-[12px]">
-                  {inv.actions.map((a, i) => (
-                    <span key={a}>
-                      {i > 0 && ' · '}
-                      <span className="text-navy-2 font-semibold cursor-pointer hover:underline">{a}</span>
-                    </span>
-                  ))}
-                </td>
+        <div className="overflow-hidden rounded-[10px] border border-line">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table></div>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="text-center text-[12px] text-slate py-8">Loading…</td></tr>
+              ) : (result?.items ?? []).length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-[12px] text-slate py-8">No invoices found.</td></tr>
+              ) : (result?.items ?? []).map((inv) => (
+                <tr key={inv.id}>
+                  <td className="font-semibold">{inv.number}</td>
+                  <td>{dateLabel(inv.issuedOn)}</td>
+                  <td className="font-semibold">₹{inv.total.toLocaleString('en-IN')}</td>
+                  <td><Badge label={inv.status.charAt(0).toUpperCase() + inv.status.slice(1)} variant={statusVariant(inv.status)} /></td>
+                  <td>{dateLabel(inv.dueOn)}</td>
+                  <td className="text-[12px]">
+                    <span
+                      className="text-navy-2 font-semibold cursor-pointer hover:underline"
+                      onClick={() => adminBillingService.downloadInvoice(inv.id)}
+                    >View</span>
+                    {inv.status !== 'paid' && (
+                      <>
+                        {' · '}
+                        <span
+                          className="text-navy-2 font-semibold cursor-pointer hover:underline"
+                          onClick={() => handlePay(inv)}
+                        >
+                          {payingId === inv.id ? 'Paying…' : 'Pay Now'}
+                        </span>
+                      </>
+                    )}
+                    {inv.status === 'paid' && (
+                      <>
+                        {' · '}
+                        <span
+                          className="text-navy-2 font-semibold cursor-pointer hover:underline"
+                          onClick={() => adminBillingService.downloadInvoice(inv.id)}
+                        >Download</span>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
     </Layout>
   );

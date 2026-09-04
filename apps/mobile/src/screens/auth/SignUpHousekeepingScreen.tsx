@@ -15,6 +15,8 @@ import BackButton from '../../components/ui/BackButton';
 import PickerField from '../../components/ui/PickerField';
 import { housekeepingSchema, validateForm } from '../../utils/validation';
 import LegalModal from '../../components/ui/LegalModal';
+import authService from '../../services/authService';
+import Toast, { ToastType } from '../../components/ui/Toast';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUpHousekeeping'> };
 
@@ -33,6 +35,9 @@ export default function SignUpHousekeepingScreen({ navigation }: Props) {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
+  const showToast = (message: string, type: ToastType = 'error') =>
+    setToast({ visible: true, message, type });
 
   const set = (key: keyof typeof form) => (val: string) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -45,10 +50,25 @@ export default function SignUpHousekeepingScreen({ navigation }: Props) {
     if (!agreed) { setErrors((e) => ({ ...e, agreed: 'Please accept the terms to continue' })); return; }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.registerHousekeeping({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        idProof: form.idProof,
+        workArea: form.workArea,
+      });
       navigation.navigate('OTPVerification', { email: form.email });
-    }, 1000);
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join('\n')
+        : (typeof detail === 'string' ? detail : 'Registration failed. Please try again.');
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,6 +134,12 @@ export default function SignUpHousekeepingScreen({ navigation }: Props) {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

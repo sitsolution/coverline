@@ -11,18 +11,50 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import authService from '../../services/authService';
+import { useAuth } from '../../store/auth';
+import Toast, { ToastType } from '../../components/ui/Toast';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
+  const { saveTokens } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
 
-  const handleLogin = () => {
+  const showToast = (message: string, type: ToastType = 'error') =>
+    setToast({ visible: true, message, type });
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      showToast('Please enter your email and password');
+      return;
+    }
     setLoading(true);
-    // TODO: call API
-    setTimeout(() => setLoading(false), 1000);
+    try {
+      const data = await authService.login(email, password);
+      if (!data.isVerified) {
+        navigation.navigate('OTPVerification', { email });
+      } else {
+        await saveTokens({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          userId: data.userId,
+          role: data.role,
+          isVerified: data.isVerified,
+        });
+      }
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join('\n')
+        : (typeof detail === 'string' ? detail : 'Login failed. Please try again.');
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,6 +117,12 @@ export default function LoginScreen({ navigation }: Props) {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

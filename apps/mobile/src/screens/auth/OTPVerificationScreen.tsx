@@ -12,6 +12,9 @@ import { RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
 import BackButton from '../../components/ui/BackButton';
+import authService from '../../services/authService';
+import { useAuth } from '../../store/auth';
+import Toast, { ToastType } from '../../components/ui/Toast';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'OTPVerification'>;
@@ -20,13 +23,17 @@ type Props = {
 
 export default function OTPVerificationScreen({ navigation, route }: Props) {
   const { email } = route.params;
+  const { saveTokens } = useAuth();
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(59);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
+  const showToast = (message: string, type: ToastType = 'error') =>
+    setToast({ visible: true, message, type });
 
   useEffect(() => {
-    // Auto-focus the hidden input on mount
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
@@ -41,10 +48,37 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
     if (val.length <= 6) setOtp(val);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setLoading(true);
-    // TODO: call API
-    setTimeout(() => setLoading(false), 1000);
+    try {
+      const data = await authService.verifyOtp(email, otp);
+      await saveTokens({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        userId: data.userId,
+        role: data.role,
+        isVerified: data.isVerified,
+      });
+      // RootNavigator will automatically switch to StaffNavigator
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Invalid or expired code. Please try again.';
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await authService.resendOtp(email);
+      setTimer(59);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not resend code. Please try again.';
+      showToast(msg);
+    } finally {
+      setResending(false);
+    }
   };
 
   const otpFilled = otp.length === 6;
@@ -62,7 +96,6 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
           <Text style={styles.emailHighlight}>{email}</Text>
         </Text>
 
-        {/* Hidden single input that captures all typing */}
         <TextInput
           ref={inputRef}
           value={otp}
@@ -73,7 +106,6 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
           caretHidden
         />
 
-        {/* Visual OTP boxes — tap any to focus the hidden input */}
         <TouchableOpacity
           style={styles.otpRow}
           onPress={() => inputRef.current?.focus()}
@@ -108,43 +140,35 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
               <Text style={styles.timerBold}>0:{timer.toString().padStart(2, '0')}</Text>
             </Text>
           ) : (
-            <TouchableOpacity onPress={() => setTimer(59)}>
-              <Text style={styles.resendLink}>Resend Code</Text>
+            <TouchableOpacity onPress={handleResend} disabled={resending}>
+              <Text style={styles.resendLink}>{resending ? 'Sending…' : 'Resend Code'}</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
-  header: {
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 8,
-  },
+  header: { paddingTop: 14, paddingHorizontal: 18, paddingBottom: 8 },
   body: { flex: 1, paddingHorizontal: 18, paddingTop: 20 },
   heading: { fontSize: 19, fontWeight: '800', color: '#14202E', marginBottom: 6 },
   description: { fontSize: 12, color: '#5C6B7A', lineHeight: 20 },
   emailHighlight: { color: '#0F3D5C', fontWeight: '700' },
-  hiddenInput: {
-    position: 'absolute',
-    opacity: 0,
-    width: 1,
-    height: 1,
-  },
+  hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
   otpRow: { flexDirection: 'row', gap: 8, marginTop: 20, marginBottom: 20 },
   otpBox: {
-    width: 42,
-    height: 50,
-    borderWidth: 1.6,
-    borderColor: '#DCE4EA',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    width: 42, height: 50, borderWidth: 1.6,
+    borderColor: '#DCE4EA', borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
   },
   otpBoxFilled: { borderColor: '#0F3D5C', backgroundColor: '#EAF2F8' },
   otpBoxActive: { borderColor: '#175E86' },

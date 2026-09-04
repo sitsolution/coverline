@@ -1,48 +1,42 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
+import earningsService, {
+  EarningsSummary,
+  TrendPoint,
+  TransactionOut,
+} from '../../services/earningsService';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'Earnings'>;
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const BAR_HEIGHTS = [40, 65, 50, 80, 55, 90, 70]; // percentages of 80px container
+function formatINR(amount: number) {
+  return `₹${amount.toLocaleString('en-IN')}`;
+}
 
-const TRANSACTIONS = [
-  {
-    initials: 'AH',
-    title: 'Apollo Hospital',
-    sub: '12 Sep · Emergency Med. shift',
-    amount: '₹9,500',
-    badgeLabel: 'Paid',
-    badgeVariant: 'success' as const,
-  },
-  {
-    initials: 'SJ',
-    title: 'St. Joseph Hospital',
-    sub: '8 Sep · General Med. shift',
-    amount: '₹7,000',
-    badgeLabel: 'Pending',
-    badgeVariant: 'warning' as const,
-  },
-];
+function txDate(isoString: string) {
+  return new Date(isoString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Badge({ label, variant }: { label: string; variant: 'success' | 'warning' }) {
-  const bg    = variant === 'success' ? '#E3F5EC' : '#FBECDC';
-  const color = variant === 'success' ? '#1F8A5F' : '#C97A2B';
+function Badge({ label, variant }: { label: string; variant: 'success' | 'warning' | 'neutral' }) {
+  const bg    = variant === 'success' ? '#E3F5EC' : variant === 'warning' ? '#FBECDC' : '#EAF2F8';
+  const color = variant === 'success' ? '#1F8A5F' : variant === 'warning' ? '#C97A2B' : '#5C6B7A';
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
       <Text style={[styles.badgeText, { color }]}>{label}</Text>
@@ -50,25 +44,28 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
   );
 }
 
-function TransactionRow({
-  item,
-  isLast,
-}: {
-  item: typeof TRANSACTIONS[0];
-  isLast: boolean;
-}) {
+function badgeVariant(status: string): 'success' | 'warning' | 'neutral' {
+  if (status === 'paid') return 'success';
+  if (status === 'pending') return 'warning';
+  return 'neutral';
+}
+
+function TransactionRow({ item, isLast }: { item: TransactionOut; isLast: boolean }) {
+  const initials = item.facilityInitials ?? '??';
+  const title = item.facilityName ?? 'Unknown';
+  const sub = `${txDate(item.earnedAt)} · ${item.specialty ?? 'Shift'}`;
   return (
     <View style={[styles.txRow, isLast && styles.txRowLast]}>
       <View style={styles.txAvatar}>
-        <Text style={styles.txAvatarText}>{item.initials}</Text>
+        <Text style={styles.txAvatarText}>{initials}</Text>
       </View>
       <View style={styles.txInfo}>
-        <Text style={styles.txTitle}>{item.title}</Text>
-        <Text style={styles.txSub}>{item.sub}</Text>
+        <Text style={styles.txTitle}>{title}</Text>
+        <Text style={styles.txSub}>{sub}</Text>
       </View>
       <View style={styles.txRight}>
-        <Text style={styles.txAmount}>{item.amount}</Text>
-        <Badge label={item.badgeLabel} variant={item.badgeVariant} />
+        <Text style={styles.txAmount}>{formatINR(item.amount)}</Text>
+        <Badge label={item.status.charAt(0).toUpperCase() + item.status.slice(1)} variant={badgeVariant(item.status)} />
       </View>
     </View>
   );
@@ -77,6 +74,69 @@ function TransactionRow({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function EarningsScreen({ navigation }: Props) {
+  const [summary, setSummary] = useState<EarningsSummary | null>(null);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [transactions, setTransactions] = useState<TransactionOut[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [payingOut, setPayingOut] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [s, t, tx] = await Promise.all([
+        earningsService.getSummary(),
+        earningsService.getTrend(7),
+        earningsService.getTransactions(10, 0),
+      ]);
+      setSummary(s);
+      setTrend(t);
+      setTransactions(tx.items);
+    } catch {
+      Alert.alert('Error', 'Failed to load earnings');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleRequestPayout = async () => {
+    setPayingOut(true);
+    try {
+      await earningsService.requestPayout();
+      Alert.alert('Success', 'Payout request submitted successfully.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to request payout.';
+      Alert.alert('Error', msg);
+    } finally {
+      setPayingOut(false);
+    }
+  };
+
+  // Compute bar heights as percentages relative to max trend value
+  const maxTrend = trend.length > 0 ? Math.max(...trend.map(p => p.amount), 1) : 1;
+  const barHeights = trend.map(p => Math.max(8, (p.amount / maxTrend) * 80));
+
+  if (loading) {
+    return (
+      <Screen style={styles.container}>
+        <View style={styles.appbar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Text style={styles.backArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.appbarTitle}>My Earnings</Text>
+          <View style={styles.spacer} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
+
+  const nextPayout = summary?.nextPayoutDate
+    ? new Date(summary.nextPayoutDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : '—';
+
   return (
     <Screen style={styles.container}>
       {/* App Bar */}
@@ -98,43 +158,48 @@ export default function EarningsScreen({ navigation }: Props) {
           style={styles.heroCard}
         >
           <Text style={styles.heroLabel}>Total Earnings (All Time)</Text>
-          <Text style={styles.heroAmount}>₹4,82,000</Text>
+          <Text style={styles.heroAmount}>{formatINR(summary?.totalEarnings ?? 0)}</Text>
           <View style={styles.heroStats}>
             <View>
               <Text style={styles.heroStatLabel}>This Month</Text>
-              <Text style={styles.heroStatValue}>₹45,000</Text>
+              <Text style={styles.heroStatValue}>{formatINR(summary?.thisMonth ?? 0)}</Text>
             </View>
             <View>
               <Text style={styles.heroStatLabel}>Pending</Text>
-              <Text style={styles.heroStatValue}>₹9,500</Text>
+              <Text style={styles.heroStatValue}>{formatINR(summary?.pending ?? 0)}</Text>
             </View>
             <View>
               <Text style={styles.heroStatLabel}>Next Payout</Text>
-              <Text style={styles.heroStatValue}>28 Sep</Text>
+              <Text style={styles.heroStatValue}>{nextPayout}</Text>
             </View>
           </View>
         </LinearGradient>
 
         {/* Earnings Trend */}
-        <Text style={styles.sectionTitle}>Earnings Trend</Text>
-        <View style={styles.chart}>
-          {BAR_HEIGHTS.map((pct, i) => (
-            <View
-              key={i}
-              style={[styles.bar, { height: (80 * pct) / 100 }]}
-            />
-          ))}
-        </View>
+        {trend.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Earnings Trend</Text>
+            <View style={styles.chart}>
+              {barHeights.map((h, i) => (
+                <View key={i} style={[styles.bar, { height: h }]} />
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Recent Transactions */}
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
-        {TRANSACTIONS.map((tx, i) => (
-          <TransactionRow key={tx.initials} item={tx} isLast={i === TRANSACTIONS.length - 1} />
-        ))}
+        {transactions.length === 0 ? (
+          <Text style={styles.emptyText}>No transactions yet.</Text>
+        ) : (
+          transactions.map((tx, i) => (
+            <TransactionRow key={tx.id} item={tx} isLast={i === transactions.length - 1} />
+          ))
+        )}
 
         {/* Withdraw button */}
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.85}>
-          <Text style={styles.primaryBtnText}>Withdraw / Request Payout</Text>
+        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.85} onPress={handleRequestPayout} disabled={payingOut}>
+          <Text style={styles.primaryBtnText}>{payingOut ? 'Requesting…' : 'Withdraw / Request Payout'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </Screen>
@@ -191,6 +256,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  emptyText: { fontSize: 12, color: '#8697A6', textAlign: 'center', paddingVertical: 14 },
+
   // Bar chart
   chart: {
     flexDirection: 'row',
@@ -206,7 +273,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
   },
 
-  // Transaction rows (no card wrapper — transparent)
+  // Transaction rows
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
