@@ -2,10 +2,11 @@ import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AuthNavigator from './AuthNavigator';
 import StaffNavigator from './StaffNavigator';
+import AdminGateScreen from '../screens/AdminGateScreen';
 import { useAuth } from '../store/auth';
 
 export default function RootNavigator() {
-  const { accessToken, isVerified, isLoading } = useAuth();
+  const { accessToken, isVerified, role, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -15,5 +16,7 @@ export default function RootNavigator() {
     );
   }
 
-  return accessToken && isVerified ? <StaffNavigator /> : <AuthNavigator />;
+  if (!accessToken || !isVerified) return <AuthNavigator />;
+  if (role === 'facility_admin') return <AdminGateScreen />;
+  return <StaffNavigator />;
 }

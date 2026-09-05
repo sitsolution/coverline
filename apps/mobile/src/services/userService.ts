@@ -42,14 +42,21 @@ export interface DashboardStats {
   earningsThisMonth: number;
 }
 
+export interface ShiftFacility {
+  id: number;
+  name: string;
+  initials: string;
+  location: string;
+  rating: number;
+  logoUrl: string | null;
+}
+
 export interface ShiftItem {
   id: number;
   title: string;
+  role: string;
   specialty: string;
-  facilityName: string;
-  facilityInitials: string;
-  city: string;
-  area: string | null;
+  facility: ShiftFacility;
   startTime: string;
   endTime: string;
   payRate: number;
@@ -57,10 +64,11 @@ export interface ShiftItem {
   isUrgent: boolean;
   isNight: boolean;
   isWeekend: boolean;
+  tags: string[];
   applicationStatus: string | null;
   isFavorite: boolean;
   slots: number;
-  slotsFilled: number;
+  slotsRemaining: number;
 }
 
 export interface DashboardResponse {

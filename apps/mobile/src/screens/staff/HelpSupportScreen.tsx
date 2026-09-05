@@ -8,9 +8,9 @@ import {
   TextInput,
   Linking,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
 import supportService, { FaqOut } from '../../services/supportService';
@@ -51,6 +51,7 @@ export default function HelpSupportScreen({ navigation }: Props) {
   const [faqs, setFaqs] = useState<FaqOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async (q?: string) => {
     try {
@@ -75,9 +76,9 @@ export default function HelpSupportScreen({ navigation }: Props) {
     setSubmitting(true);
     try {
       await supportService.createTicket('Live Chat Request', 'User requested live chat support.');
-      Alert.alert('Support Ticket Created', 'Our team will contact you shortly.');
+      setToast({ visible: true, message: 'Support ticket created. Our team will contact you shortly.', type: 'success' });
     } catch {
-      Alert.alert('Error', 'Could not submit request. Please try emailing us.');
+      setToast({ visible: true, message: 'Could not submit request. Please try emailing us.', type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -140,6 +141,12 @@ export default function HelpSupportScreen({ navigation }: Props) {
         </View>
 
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

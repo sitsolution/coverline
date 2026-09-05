@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Panel from '../components/ui/Panel';
-import adminSettingsService, { FacilityProfileOut } from '../services/adminSettingsService';
+import Badge from '../components/ui/Badge';
+import adminSettingsService, { FacilityProfileOut, AdminUserRow } from '../services/adminSettingsService';
 
 const NAV_ITEMS = [
   'Facility Profile',
@@ -21,6 +22,12 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Users tab
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   // Editable fields
   const [name, setName] = useState('');
@@ -42,17 +49,42 @@ export default function AdminSettings() {
     }
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const list = await adminSettingsService.getUsers();
+      setUsers(list);
+    } catch {} finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (activeNav === 'Users & Permissions') loadUsers();
+  }, [activeNav, loadUsers]);
 
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError('');
+    setFieldErrors({});
     try {
       const updated = await adminSettingsService.updateFacility({ name, address, contactEmail, description });
       setProfile(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {} finally {
+    } catch (err: any) {
+      const resp = err?.response?.data;
+      if (resp?.fields && typeof resp.fields === 'object') {
+        setFieldErrors(resp.fields);
+      } else if (resp?.detail) {
+        setSaveError(resp.detail);
+      } else {
+        setSaveError('Failed to save changes. Please try again.');
+      }
+    } finally {
       setSaving(false);
     }
   };
@@ -88,36 +120,41 @@ export default function AdminSettings() {
                   <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Facility Name</label>
                   <input
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+                    onChange={(e) => { setName(e.target.value); setFieldErrors(p => ({ ...p, name: '' })); }}
+                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.name ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
                   />
+                  {fieldErrors.name && <p className="text-[11px] text-urgent mt-1">{fieldErrors.name}</p>}
                 </div>
                 <div className="mb-[13px]">
                   <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Address</label>
                   <input
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+                    onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => ({ ...p, address: '' })); }}
+                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.address ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
                   />
+                  {fieldErrors.address && <p className="text-[11px] text-urgent mt-1">{fieldErrors.address}</p>}
                 </div>
                 <div className="mb-[13px]">
                   <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Contact Email</label>
                   <input
                     type="email"
                     value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+                    onChange={(e) => { setContactEmail(e.target.value); setFieldErrors(p => ({ ...p, contactEmail: '' })); }}
+                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.contactEmail ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
                   />
+                  {fieldErrors.contactEmail && <p className="text-[11px] text-urgent mt-1">{fieldErrors.contactEmail}</p>}
                 </div>
                 <div className="mb-[13px]">
                   <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Description</label>
                   <input
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+                    onChange={(e) => { setDescription(e.target.value); setFieldErrors(p => ({ ...p, description: '' })); }}
+                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.description ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
                   />
+                  {fieldErrors.description && <p className="text-[11px] text-urgent mt-1">{fieldErrors.description}</p>}
                 </div>
 
+                {saveError && <p className="text-[11px] text-urgent font-semibold mb-2">{saveError}</p>}
                 <button
                   onClick={handleSave}
                   disabled={saving}
@@ -154,13 +191,53 @@ export default function AdminSettings() {
 
         {activeNav === 'Users & Permissions' && (
           <Panel title="Users & Permissions">
-            <p className="text-[12px] text-slate mb-4">Manage admin users for your facility.</p>
-            <Link
-              to="/settings/add-user"
-              className="inline-block bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
-            >
-              + Invite Admin User
-            </Link>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[12px] text-slate">Admin users for your facility.</p>
+              <Link
+                to="/settings/add-user"
+                className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
+              >
+                + Invite Admin User
+              </Link>
+            </div>
+            {usersLoading ? (
+              <p className="text-[12px] text-slate">Loading…</p>
+            ) : users.length === 0 ? (
+              <p className="text-[12px] text-slate text-center py-4">No admin users found.</p>
+            ) : (
+              <div className="overflow-hidden rounded-[10px] border border-line">
+                <table className="adm-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id}>
+                        <td className="font-semibold">{u.name}</td>
+                        <td className="text-slate">{u.email}</td>
+                        <td>
+                          <Badge
+                            label={u.facilityRole === 'super_admin' ? 'Super Admin' : 'Manager'}
+                            variant={u.facilityRole === 'super_admin' ? 'info' : 'neutral'}
+                          />
+                        </td>
+                        <td>
+                          <Badge
+                            label={u.acceptedAt ? 'Active' : 'Invited'}
+                            variant={u.acceptedAt ? 'success' : 'warning'}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
         )}
 

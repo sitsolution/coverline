@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import adminBookingsService, { BookingDetail, BookingMessageOut } from '../services/adminBookingsService';
+import { apiError } from '../utils/apiError';
 
 type BadgeVariant = 'success' | 'warning' | 'urgent' | 'info' | 'neutral';
 
@@ -36,6 +37,9 @@ export default function BookingDetails() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showCancelPanel, setShowCancelPanel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -65,22 +69,29 @@ export default function BookingDetails() {
   const handleComplete = async () => {
     if (!id || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminBookingsService.completeBooking(parseInt(id));
       setBooking(updated);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to complete booking. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
 
   const handleCancel = async () => {
     if (!id || actionLoading) return;
-    const reason = window.prompt('Reason for cancellation (optional):') ?? undefined;
     setActionLoading(true);
+    setActionError('');
     try {
-      const updated = await adminBookingsService.cancelBooking(parseInt(id), reason || undefined);
+      const updated = await adminBookingsService.cancelBooking(parseInt(id), cancelReason.trim() || undefined);
       setBooking(updated);
-    } catch {} finally {
+      setShowCancelPanel(false);
+      setCancelReason('');
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to cancel booking. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -183,6 +194,9 @@ export default function BookingDetails() {
           </Panel>
 
           <Panel title="Actions">
+            {actionError && (
+              <p className="text-[11px] text-urgent font-semibold mb-2">{actionError}</p>
+            )}
             {booking.staffEmail && (
               <a
                 href={`mailto:${booking.staffEmail}`}
@@ -197,17 +211,43 @@ export default function BookingDetails() {
                 disabled={actionLoading}
                 className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 disabled:opacity-60"
               >
-                Mark as Completed
+                {actionLoading ? 'Updating…' : 'Mark as Completed'}
               </button>
             )}
-            {['pending', 'confirmed', 'upcoming'].includes(booking.status) && (
+            {['pending', 'confirmed', 'upcoming'].includes(booking.status) && !showCancelPanel && (
               <button
-                onClick={handleCancel}
+                onClick={() => setShowCancelPanel(true)}
                 disabled={actionLoading}
                 className="w-full bg-urgent-bg text-urgent text-[13px] font-bold px-4 py-[11px] rounded-[10px] disabled:opacity-60"
               >
                 Cancel Booking
               </button>
+            )}
+            {showCancelPanel && (
+              <div className="mt-1">
+                <input
+                  type="text"
+                  placeholder="Reason for cancellation (optional)"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full px-3 py-[9px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-urgent mb-2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowCancelPanel(false); setCancelReason(''); }}
+                    className="flex-1 bg-sky text-navy text-[12px] font-bold px-3 py-[9px] rounded-[9px]"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={actionLoading}
+                    className="flex-1 bg-urgent-bg text-urgent text-[12px] font-bold px-3 py-[9px] rounded-[9px] disabled:opacity-60"
+                  >
+                    {actionLoading ? 'Cancelling…' : 'Confirm Cancel'}
+                  </button>
+                </div>
+              </div>
             )}
           </Panel>
         </div>

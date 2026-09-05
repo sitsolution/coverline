@@ -47,8 +47,11 @@ from .common import (
 router = APIRouter()
 
 SHIFT_TYPES = ["Regular", "Emergency", "Weekend", "Night"]
-QUALIFICATIONS = ["MBBS", "MD/MS", "DNB", "B.Sc Nursing", "GNM", "Diploma in OT Technology"]
-CERTIFICATIONS = ["BLS", "ACLS", "PALS", "Infection Control"]
+QUALIFICATIONS = ["MBBS", "MD/MS", "DNB"]
+CERTIFICATIONS = ["BLS", "ACLS"]
+DEFAULT_SPECIALTIES = [
+    "Emergency Medicine", "General Medicine", "Pediatrics", "Anaesthesia",
+]
 
 
 def _combine(day, start, end) -> tuple[datetime, datetime]:
@@ -79,6 +82,9 @@ def _row(shift: Shift, pending: int, assigned: List[str]) -> AdminShiftRow:
         applicant_count=pending,
         pay_rate=float(shift.pay_rate),
         is_urgent=shift.is_urgent,
+        is_night=shift.is_night,
+        is_weekend=shift.is_weekend,
+        shift_type=shift.shift_type,
         slots=shift.slots,
         slots_filled=shift.slots_filled,
     )
@@ -196,17 +202,18 @@ def form_options(admin: AdminContext = Depends(require_admin(AdminPermission.shi
     if not admin.is_platform_admin:
         facilities_query = facilities_query.filter(Facility.id.in_(admin.facility_ids))
 
-    specialties = [
+    db_specialties = [
         row[0] for row in admin.scope(db.query(Shift.specialty), Shift.facility_id).distinct().all()
         if row[0]
     ]
+    specialties = sorted(set(db_specialties) | set(DEFAULT_SPECIALTIES))
 
     return ShiftFormOptions(
         facilities=[
             {"id": f.id, "name": f.name, "location": f.location_label}
             for f in facilities_query.order_by(Facility.name).all()
         ],
-        specialties=sorted(specialties),
+        specialties=specialties,
         qualifications=QUALIFICATIONS,
         certifications=CERTIFICATIONS,
         shift_types=SHIFT_TYPES,
@@ -251,6 +258,7 @@ def create_shift(
         slots=payload.slots,
         status=ShiftStatus.open if payload.publish else ShiftStatus.draft,
         is_urgent=payload.is_urgent,
+        shift_type=payload.shift_type,
         requirements=payload.requirements,
         required_qualifications=csv_or_none(payload.required_qualifications),
         required_certifications=csv_or_none(payload.required_certifications),

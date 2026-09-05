@@ -74,6 +74,8 @@ def shift_item(
         pay_rate=float(shift.pay_rate),
         status=shift.status,
         is_urgent=shift.is_urgent,
+        is_night=shift.is_night,
+        is_weekend=shift.is_weekend,
         tags=shift.tags,
         slots=shift.slots,
         slots_remaining=max(0, shift.slots - shift.slots_filled),

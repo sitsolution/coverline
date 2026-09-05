@@ -3,52 +3,115 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Panel from '../components/ui/Panel';
 import FormField from '../components/ui/FormField';
-import SelectField from '../components/ui/SelectField';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import adminShiftsService, { ShiftFormOptions } from '../services/adminShiftsService';
+
+// Simple select
+function SelectField({
+  label,
+  options,
+  labels,
+  value,
+  onChange,
+  error,
+}: {
+  label: string;
+  options: string[];
+  labels?: Record<string, string>;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  return (
+    <div className="mb-[13px]">
+      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full px-3 py-[10px] border-[1.4px] rounded-[9px] text-[13px] text-ink bg-white outline-none focus:border-navy-2 appearance-none ${error ? 'border-urgent' : 'border-line'}`}
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%235C6B7A' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+      >
+        {options.map((o) => <option key={o || '__none'} value={o}>{o === '' ? '— None —' : (labels?.[o] ?? o)}</option>)}
+      </select>
+      {error && <p className="text-[11px] text-urgent mt-1">{error}</p>}
+    </div>
+  );
+}
+
+const SHIFT_TYPES = ['Regular', 'Emergency', 'Weekend', 'Night'];
 
 export default function CreateShift() {
   const navigate = useNavigate();
   const [options, setOptions] = useState<ShiftFormOptions | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form state
   const [title, setTitle] = useState('');
   const [facilityId, setFacilityId] = useState('');
   const [specialty, setSpecialty] = useState('');
-  const [role, setRole] = useState('doctor');
+  const [shiftType, setShiftType] = useState('Regular');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [payRate, setPayRate] = useState('');
   const [overtimeRate, setOvertimeRate] = useState('');
+  const [requiredQualification, setRequiredQualification] = useState('');
+  const [requiredCertification, setRequiredCertification] = useState('');
   const [requirements, setRequirements] = useState('');
   const [isVisible, setIsVisible] = useState(true);
   const [notifyStaff, setNotifyStaff] = useState(true);
 
   useEffect(() => {
-    adminShiftsService.getFormOptions().then(setOptions).catch(() => {});
+    adminShiftsService.getFormOptions().then((opts) => {
+      setOptions(opts);
+      if (opts.specialties.length > 0) setSpecialty(opts.specialties[0]);
+      if (opts.facilities.length > 0) setFacilityId(String(opts.facilities[0].id));
+    }).catch(() => {});
   }, []);
 
+  const clearFieldError = (field: string) =>
+    setFieldErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
+
+  const validate = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!date) errs.date = 'Date is required.';
+    else if (date < new Date().toISOString().slice(0, 10)) errs.date = 'Date cannot be in the past.';
+    if (!startTime) errs.startTime = 'Start time is required.';
+    if (!endTime) errs.endTime = 'End time is required.';
+    if (startTime && endTime && endTime <= startTime) errs.endTime = 'End time must be after start time.';
+    if (!payRate) errs.payRate = 'Pay rate is required.';
+    else if (isNaN(parseFloat(payRate)) || parseFloat(payRate) <= 0) errs.payRate = 'Enter a valid pay rate.';
+    if (overtimeRate && (isNaN(parseFloat(overtimeRate)) || parseFloat(overtimeRate) <= 0))
+      errs.overtimeRate = 'Enter a valid overtime rate.';
+    return errs;
+  };
+
   const handleSave = async (publish: boolean) => {
-    if (!date || !startTime || !endTime || !payRate) {
-      setError('Please fill in date, start time, end time and pay rate.');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setError('Please fix the highlighted fields below.');
       return;
     }
     setSaving(true);
     setError('');
+    setFieldErrors({});
     try {
       const shift = await adminShiftsService.createShift({
         title: title || undefined,
         facilityId: facilityId ? parseInt(facilityId) : undefined,
         specialty,
-        role,
+        isUrgent: shiftType === 'Emergency',
+        shiftType,
         date,
         startTime,
         endTime,
         payRate: parseFloat(payRate),
         overtimeRate: overtimeRate ? parseFloat(overtimeRate) : undefined,
+        requiredQualifications: requiredQualification ? [requiredQualification] : [],
+        requiredCertifications: requiredCertification ? [requiredCertification] : [],
         requirements: requirements || undefined,
         isVisible,
         notifyStaff,
@@ -56,15 +119,23 @@ export default function CreateShift() {
       });
       navigate(`/shifts/${shift.id}`);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to create shift.';
-      setError(msg);
+      const data = (err as any)?.response?.data;
+      const fields = data?.fields ?? {};
+      if (Object.keys(fields).length > 0) {
+        setFieldErrors(fields);
+        setError('Please fix the highlighted fields below.');
+      } else {
+        setError(data?.detail ?? 'Failed to create shift.');
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const facilityOptions = options?.facilities.map(f => f.name) ?? [];
-  const specialtyOptions = options?.specialties ?? ['Emergency Medicine', 'General Medicine', 'Pediatrics', 'Anaesthesia'];
+  const facilityOptions = options?.facilities ?? [];
+  const specialtyOptions = options?.specialties ?? [];
+  const qualificationOptions = options?.qualifications ?? [];
+  const certificationOptions = options?.certifications ?? [];
 
   return (
     <Layout>
@@ -82,38 +153,103 @@ export default function CreateShift() {
         <div>
           <Panel title="Basic Information">
             <FormField label="Shift Title" placeholder="ER Night Cover" value={title} onChange={(e) => setTitle(e.target.value)} />
-            {facilityOptions.length > 0 && (
-              <SelectField
-                label="Location"
-                options={facilityOptions}
-                onChange={(v) => {
-                  const f = options?.facilities.find(f => f.name === v);
-                  if (f) setFacilityId(String(f.id));
-                }}
-              />
-            )}
-            <SelectField label="Department/Specialty" options={specialtyOptions} onChange={setSpecialty} />
-            <SelectField label="Role" options={['doctor', 'nurse', 'ot_tech', 'housekeeping']} onChange={setRole} />
+
+            {/* Location */}
+            <div className="mb-[13px]">
+              <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Location</label>
+              <select
+                value={facilityId}
+                onChange={(e) => setFacilityId(e.target.value)}
+                className="w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink bg-white outline-none focus:border-navy-2 appearance-none"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%235C6B7A' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+              >
+                {facilityOptions.map((f) => (
+                  <option key={f.id} value={String(f.id)}>{f.name}{f.location ? ` — ${f.location}` : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <SelectField
+              label="Department / Specialty"
+              options={specialtyOptions}
+              value={specialty}
+              onChange={(v) => { setSpecialty(v); clearFieldError('specialty'); }}
+              error={fieldErrors.specialty}
+            />
+
+            <SelectField
+              label="Shift Type"
+              options={SHIFT_TYPES}
+              value={shiftType}
+              onChange={setShiftType}
+            />
           </Panel>
 
           <Panel title="Date & Time">
+            <FormField
+              label="Date"
+              type="date"
+              value={date}
+              error={fieldErrors.date}
+              onChange={(e) => { setDate(e.target.value); clearFieldError('date'); }}
+            />
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Start Time" type="time" onChange={(e) => setStartTime(e.target.value)} />
-              <FormField label="End Time" type="time" onChange={(e) => setEndTime(e.target.value)} />
+              <FormField
+                label="Start Time"
+                type="time"
+                value={startTime}
+                error={fieldErrors.startTime}
+                onChange={(e) => { setStartTime(e.target.value); clearFieldError('startTime'); clearFieldError('endTime'); }}
+              />
+              <FormField
+                label="End Time"
+                type="time"
+                value={endTime}
+                error={fieldErrors.endTime}
+                onChange={(e) => { setEndTime(e.target.value); clearFieldError('endTime'); }}
+              />
             </div>
-            <FormField label="Date" type="date" onChange={(e) => setDate(e.target.value)} />
           </Panel>
 
           <Panel title="Requirements">
-            <FormField label="Additional Notes" placeholder="Must be comfortable with trauma cases" value={requirements} onChange={(e) => setRequirements(e.target.value)} />
+            <SelectField
+              label="Required Qualifications"
+              options={['', ...qualificationOptions]}
+              value={requiredQualification}
+              onChange={setRequiredQualification}
+            />
+            <SelectField
+              label="Required Certifications"
+              options={['', ...certificationOptions]}
+              value={requiredCertification}
+              onChange={setRequiredCertification}
+            />
+            <FormField
+              label="Additional Notes"
+              placeholder="Must be comfortable with trauma cases"
+              value={requirements}
+              onChange={(e) => setRequirements(e.target.value)}
+            />
           </Panel>
         </div>
 
         {/* Right column */}
         <div>
           <Panel title="Compensation">
-            <FormField label="Pay Rate (₹)" placeholder="9500" value={payRate} onChange={(e) => setPayRate(e.target.value)} />
-            <FormField label="Overtime Rate (optional)" placeholder="1200" value={overtimeRate} onChange={(e) => setOvertimeRate(e.target.value)} />
+            <FormField
+              label="Pay Rate (₹)"
+              placeholder="9500"
+              value={payRate}
+              error={fieldErrors.payRate}
+              onChange={(e) => { setPayRate(e.target.value); clearFieldError('payRate'); }}
+            />
+            <FormField
+              label="Overtime Rate (optional)"
+              placeholder="1200"
+              value={overtimeRate}
+              error={fieldErrors.overtimeRate}
+              onChange={(e) => { setOvertimeRate(e.target.value); clearFieldError('overtimeRate'); }}
+            />
           </Panel>
 
           <Panel title="Visibility">

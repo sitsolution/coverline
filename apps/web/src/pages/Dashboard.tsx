@@ -23,9 +23,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<AdminDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    adminDashboardService.getDashboard().then(setData).catch(() => {}).finally(() => setLoading(false));
+    adminDashboardService.getDashboard().then(setData).catch(() => setError('Failed to load dashboard.')).finally(() => setLoading(false));
   }, []);
 
   // Bar chart: scale bars relative to max value
@@ -34,6 +35,11 @@ export default function Dashboard() {
 
   return (
     <Layout>
+      {error && (
+        <div className="mb-4 px-3 py-[9px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
+          {error}
+        </div>
+      )}
       {/* Header row */}
       <div className="flex items-start justify-between mb-4">
         <div>

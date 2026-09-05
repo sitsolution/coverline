@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import userService from '../../services/userService';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
@@ -64,10 +64,11 @@ function InputField({
 
 function DateField({ label, value, onChange }: {
   label: string;
-  value: Date;
+  value: Date | null;
   onChange: (d: Date) => void;
 }) {
   const [show, setShow] = useState(false);
+  const pickerValue = value ?? new Date(1990, 0, 1);
 
   const onPickerChange = (_e: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') setShow(false);
@@ -78,14 +79,17 @@ function DateField({ label, value, onChange }: {
     <View style={styles.field}>
       <FieldLabel label={label} />
       <TouchableOpacity style={styles.dateInput} onPress={() => setShow(true)} activeOpacity={0.8}>
-        <Text style={styles.dateText}>{formatDate(value)}</Text>
+        <Text style={[styles.dateText, !value && { color: '#A9B8C4' }]}>
+          {value ? formatDate(value) : 'Select date of birth'}
+        </Text>
         <Text style={styles.dateIcon}>📅</Text>
       </TouchableOpacity>
       {show && (
         <DateTimePicker
-          value={value}
+          value={pickerValue}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={onPickerChange}
         />
       )}
@@ -103,20 +107,25 @@ function DateField({ label, value, onChange }: {
 
 export default function EditProfileScreen({ navigation }: Props) {
   const [name,       setName]       = useState('');
+  const [email,      setEmail]      = useState('');
   const [phone,      setPhone]      = useState('');
-  const [dob,        setDob]        = useState(new Date(1992, 5, 14));
+  const [dob,        setDob]        = useState<Date | null>(null);
+  const [initials,   setInitials]   = useState('?');
   const [specialty,  setSpecialty]  = useState(SPECIALTIES[0]);
   const [experience, setExperience] = useState(EXPERIENCE[2]);
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   useEffect(() => {
     (async () => {
       try {
         const data = await userService.getMe();
         setName(data.user.fullName);
+        setEmail(data.user.email ?? '');
         setPhone(data.user.phone ?? '');
-        if (data.user.dateOfBirth) setDob(new Date(data.user.dateOfBirth));
+        setInitials(data.user.fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase());
+        if (data.dateOfBirth) setDob(new Date(data.dateOfBirth));
         if (data.profile?.specialty) setSpecialty(data.profile.specialty);
         if (data.profile?.experience) setExperience(data.profile.experience);
       } catch {} finally { setLoading(false); }
@@ -129,14 +138,14 @@ export default function EditProfileScreen({ navigation }: Props) {
       await userService.updateMe({
         fullName: name,
         phone,
-        dateOfBirth: dob.toISOString().split('T')[0],
+        dateOfBirth: dob ? dob.toISOString().split('T')[0] : undefined,
         specialty,
         experience,
       });
       navigation.goBack();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to save profile.';
-      Alert.alert('Error', msg);
+      setToast({ visible: true, message: msg, type: 'error' });
     } finally { setSaving(false); }
   };
 
@@ -165,7 +174,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         {/* Avatar + Change Photo */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarLg}>
-            <Text style={styles.avatarLgText}>AR</Text>
+            <Text style={styles.avatarLgText}>{initials}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.7}>
             <Text style={styles.changePhotoText}>Change Photo</Text>
@@ -173,9 +182,16 @@ export default function EditProfileScreen({ navigation }: Props) {
         </View>
 
         {/* Fields */}
-        <InputField label="Full Name"      value={name}  onChangeText={setName} />
-        <InputField label="Phone Number"   value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-        <DateField  label="Date of Birth"  value={dob}   onChange={setDob} />
+        <InputField label="Full Name"    value={name}  onChangeText={setName} />
+        {/* Email is read-only — shown for reference */}
+        <View style={styles.field}>
+          <FieldLabel label="Email Address" />
+          <View style={[styles.input, { justifyContent: 'center', backgroundColor: '#F5F8FA' }]}>
+            <Text style={{ fontSize: 13, color: '#8697A6' }}>{email}</Text>
+          </View>
+        </View>
+        <InputField label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <DateField  label="Date of Birth" value={dob}  onChange={setDob} />
         <PickerField label="Specialty"            options={SPECIALTIES} value={specialty}  onSelect={setSpecialty} />
         <PickerField label="Years of Experience"  options={EXPERIENCE}  value={experience} onSelect={setExperience} />
 
@@ -189,6 +205,12 @@ export default function EditProfileScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

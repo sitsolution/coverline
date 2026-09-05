@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
 import applicationService, { ApplicationOut, ApplicationCounts } from '../../services/applicationService';
@@ -44,11 +45,11 @@ function AppCard({ item, tab, onCancel }: { item: ApplicationOut; tab: TabKey; o
       <View style={styles.cardRow1}>
         <View style={styles.hosp}>
           <View style={styles.logoChip}>
-            <Text style={styles.logoChipText}>{shift.facilityInitials || shift.facilityName.slice(0, 2).toUpperCase()}</Text>
+            <Text style={styles.logoChipText}>{shift.facility?.initials || (shift.facility?.name ?? '??').slice(0, 2).toUpperCase()}</Text>
           </View>
           <View>
-            <Text style={styles.hname}>{shift.facilityName}</Text>
-            <Text style={styles.hloc}>{shift.city}{shift.area ? `, ${shift.area}` : ''}</Text>
+            <Text style={styles.hname}>{shift.facility?.name}</Text>
+            <Text style={styles.hloc}>{shift.facility?.location}</Text>
           </View>
         </View>
         <View style={[styles.badge, { backgroundColor: badgeStyle.bg }]}>
@@ -85,6 +86,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
   const [items, setItems] = useState<ApplicationOut[]>([]);
   const [counts, setCounts] = useState<ApplicationCounts>({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async (tab: TabKey) => {
     setLoading(true);
@@ -93,7 +95,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
       setItems(res.items);
       setCounts(res.counts);
     } catch {
-      Alert.alert('Error', 'Failed to load applications');
+      setToast({ visible: true, message: 'Failed to load applications.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -113,7 +115,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
             load(activeTab);
           } catch (err: unknown) {
             const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not cancel application.';
-            Alert.alert('Error', msg);
+            setToast({ visible: true, message: msg, type: 'error' });
           }
         },
       },
@@ -172,6 +174,12 @@ export default function MyApplicationsScreen({ navigation }: Props) {
           ))
         )}
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

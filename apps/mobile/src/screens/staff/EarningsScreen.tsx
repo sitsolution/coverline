@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
@@ -79,6 +79,7 @@ export default function EarningsScreen({ navigation }: Props) {
   const [transactions, setTransactions] = useState<TransactionOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingOut, setPayingOut] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async () => {
     try {
@@ -91,7 +92,7 @@ export default function EarningsScreen({ navigation }: Props) {
       setTrend(t);
       setTransactions(tx.items);
     } catch {
-      Alert.alert('Error', 'Failed to load earnings');
+      setToast({ visible: true, message: 'Failed to load earnings.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -103,10 +104,10 @@ export default function EarningsScreen({ navigation }: Props) {
     setPayingOut(true);
     try {
       await earningsService.requestPayout();
-      Alert.alert('Success', 'Payout request submitted successfully.');
+      setToast({ visible: true, message: 'Payout request submitted successfully.', type: 'success' });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to request payout.';
-      Alert.alert('Error', msg);
+      setToast({ visible: true, message: msg, type: 'error' });
     } finally {
       setPayingOut(false);
     }
@@ -202,6 +203,12 @@ export default function EarningsScreen({ navigation }: Props) {
           <Text style={styles.primaryBtnText}>{payingOut ? 'Requesting…' : 'Withdraw / Request Payout'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

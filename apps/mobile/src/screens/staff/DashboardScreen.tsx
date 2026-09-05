@@ -14,6 +14,7 @@ import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import userService, { DashboardResponse, ShiftItem } from '../../services/userService';
 import shiftService from '../../services/shiftService';
 import Toast, { ToastType } from '../../components/ui/Toast';
+import EmptyState from '../../components/ui/EmptyState';
 
 type Props = { navigation: NativeStackNavigationProp<HomeStackParamList, 'Dashboard'> };
 
@@ -64,10 +65,10 @@ function UrgentShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: num
   return (
     <View style={styles.urgentCard}>
       <View style={styles.cardTopRow}>
-        <HospitalAvatar initials={item.facilityInitials || getInitials(item.facilityName)} />
+        <HospitalAvatar initials={item.facility?.initials || getInitials(item.facility?.name ?? '')} />
         <View style={styles.cardTopInfo}>
-          <Text style={styles.hospitalName}>{item.facilityName}</Text>
-          <Text style={styles.hospitalLoc}>📍 {item.city}{item.area ? `, ${item.area}` : ''}</Text>
+          <Text style={styles.hospitalName}>{item.facility?.name}</Text>
+          <Text style={styles.hospitalLoc}>📍 {item.facility?.location}</Text>
         </View>
       </View>
 
@@ -103,10 +104,10 @@ function RecommendedShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id
   return (
     <View style={styles.recCard}>
       <View style={styles.cardTopRow}>
-        <HospitalAvatar initials={item.facilityInitials || getInitials(item.facilityName)} />
+        <HospitalAvatar initials={item.facility?.initials || getInitials(item.facility?.name ?? '')} />
         <View style={styles.cardTopInfo}>
-          <Text style={styles.hospitalName}>{item.facilityName}</Text>
-          <Text style={styles.hospitalLoc}>📍 {item.city}{item.area ? `, ${item.area}` : ''}</Text>
+          <Text style={styles.hospitalName}>{item.facility?.name}</Text>
+          <Text style={styles.hospitalLoc}>📍 {item.facility?.location}</Text>
         </View>
         <Text style={styles.shiftPay}>₹{item.payRate.toLocaleString('en-IN')}</Text>
       </View>
@@ -236,7 +237,11 @@ export default function DashboardScreen({ navigation }: Props) {
             nestedScrollEnabled
           />
         ) : (
-          <Text style={styles.emptyText}>No urgent shifts right now</Text>
+          <EmptyState
+            icon="⚡"
+            title="No urgent shifts right now"
+            subtitle="You're all caught up. New urgent shifts will appear here."
+          />
         )}
 
         {/* Recommended Shifts */}
@@ -250,7 +255,13 @@ export default function DashboardScreen({ navigation }: Props) {
             <RecommendedShiftCard key={item.id} item={item} onApply={handleApply} />
           ))
         ) : (
-          <Text style={styles.emptyText}>No recommended shifts yet</Text>
+          <EmptyState
+            icon="🌟"
+            title="No recommendations yet"
+            subtitle="Complete your profile and set availability to get personalised shift suggestions."
+            buttonLabel="Set Availability"
+            onPress={() => navigation.navigate('Calendar' as never)}
+          />
         )}
 
         <View style={{ height: 20 }} />

@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import adminShiftsService, { AdminShiftDetail, ApplicantRow } from '../services/adminShiftsService';
+import { apiError } from '../utils/apiError';
 
 type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral' | 'info';
 
@@ -14,6 +15,7 @@ function statusVariant(status: string): BadgeVariant {
     case 'pending': return 'warning';
     case 'completed': return 'neutral';
     case 'cancelled': return 'urgent';
+    case 'draft': return 'info';
     default: return 'neutral';
   }
 }
@@ -39,6 +41,9 @@ export default function ShiftDetails() {
   const [shift, setShift] = useState<AdminShiftDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showCancelPanel, setShowCancelPanel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -56,10 +61,13 @@ export default function ShiftDetails() {
   const handleAssign = async (applicant: ApplicantRow) => {
     if (!shift || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminShiftsService.assignApplicant(shift.id, applicant.applicationId);
       setShift(updated);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to assign applicant. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -67,22 +75,29 @@ export default function ShiftDetails() {
   const handleReject = async (applicant: ApplicantRow) => {
     if (!shift || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminShiftsService.rejectApplicant(shift.id, applicant.applicationId);
       setShift(updated);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to reject applicant. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
 
   const handleCancel = async () => {
     if (!shift || actionLoading) return;
-    const reason = window.prompt('Reason for cancellation (optional):') ?? undefined;
     setActionLoading(true);
+    setActionError('');
     try {
-      const updated = await adminShiftsService.cancelShift(shift.id, reason || undefined);
+      const updated = await adminShiftsService.cancelShift(shift.id, cancelReason.trim() || undefined);
       setShift(updated);
-    } catch {} finally {
+      setShowCancelPanel(false);
+      setCancelReason('');
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to cancel shift. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -90,10 +105,27 @@ export default function ShiftDetails() {
   const handleDuplicate = async () => {
     if (!shift || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const dup = await adminShiftsService.duplicateShift(shift.id);
       navigate(`/shifts/${dup.id}`);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to duplicate shift. Please try again.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!shift || actionLoading) return;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      const updated = await adminShiftsService.publishShift(shift.id);
+      setShift(updated);
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to publish shift. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -101,10 +133,13 @@ export default function ShiftDetails() {
   const handleComplete = async () => {
     if (!shift || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminShiftsService.completeShift(shift.id);
       setShift(updated);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to mark shift complete. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -130,31 +165,69 @@ export default function ShiftDetails() {
             {shift.reference} · {shift.facilityName} · {shiftTimeLabel(shift.startTime, shift.endTime)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleDuplicate}
-            disabled={actionLoading}
-            className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] bg-transparent disabled:opacity-60"
-          >
-            Duplicate
-          </button>
-          {shift.status === 'filled' && (
-            <button
-              onClick={handleComplete}
-              disabled={actionLoading}
-              className="bg-sky text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
-            >
-              Mark Complete
-            </button>
+        <div className="flex flex-col items-end gap-2">
+          {actionError && (
+            <p className="text-[11px] text-urgent font-semibold">{actionError}</p>
           )}
-          {['open', 'pending', 'filled'].includes(shift.status) && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleCancel}
+              onClick={handleDuplicate}
               disabled={actionLoading}
-              className="bg-urgent-bg text-urgent text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
+              className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] bg-transparent disabled:opacity-60"
             >
-              Cancel Shift
+              Duplicate
             </button>
+            {shift.status === 'draft' && (
+              <button
+                onClick={handlePublish}
+                disabled={actionLoading}
+                className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
+              >
+                {actionLoading ? 'Publishing…' : 'Publish Shift'}
+              </button>
+            )}
+            {shift.status === 'filled' && (
+              <button
+                onClick={handleComplete}
+                disabled={actionLoading}
+                className="bg-sky text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
+              >
+                {actionLoading ? 'Updating…' : 'Mark Complete'}
+              </button>
+            )}
+            {['open', 'pending', 'filled'].includes(shift.status) && !showCancelPanel && (
+              <button
+                onClick={() => setShowCancelPanel(true)}
+                disabled={actionLoading}
+                className="bg-urgent-bg text-urgent text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
+              >
+                Cancel Shift
+              </button>
+            )}
+          </div>
+          {showCancelPanel && (
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Reason (optional)"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="px-3 py-[7px] border-[1.4px] border-line rounded-[9px] text-[12px] text-ink outline-none focus:border-urgent w-[200px]"
+              />
+              <button
+                onClick={() => { setShowCancelPanel(false); setCancelReason(''); }}
+                className="text-[11.5px] font-semibold text-slate px-2"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading}
+                className="bg-urgent-bg text-urgent text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] disabled:opacity-60"
+              >
+                {actionLoading ? 'Cancelling…' : 'Confirm Cancel'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -187,10 +260,10 @@ export default function ShiftDetails() {
                       <td>{a.specialty ?? '—'}</td>
                       <td>{a.rating.toFixed(1)}★</td>
                       <td className="text-slate">{timeAgo(a.appliedAt)}</td>
-                      <td><Badge label={a.status} variant={a.status === 'confirmed' ? 'success' : a.status === 'rejected' ? 'urgent' : 'warning'} /></td>
+                      <td><Badge label={a.status} variant={a.status === 'confirmed' ? 'success' : a.status === 'rejected' || a.status === 'cancelled' ? 'urgent' : 'warning'} /></td>
                       <td className="text-[12px]">
                         <Link to={`/staff/${a.staffId}`} className="text-navy-2 font-semibold hover:underline">Profile</Link>
-                        {a.status === 'applied' && (
+                        {a.status === 'pending' && (
                           <>
                             {' · '}
                             <span
@@ -244,8 +317,9 @@ export default function ShiftDetails() {
               `Specialty: ${shift.specialty}`,
               `Duration: ${shift.durationHours}h`,
               `Pay Rate: ₹${shift.payRate.toLocaleString('en-IN')}`,
-              shift.requirements ? `Requirements: ${shift.requirements}` : null,
-              `Slots: ${shift.slotsFilled}/${shift.slots} filled`,
+              shift.requiredQualifications.length > 0 ? `Qualifications: ${shift.requiredQualifications.join(', ')}` : null,
+              shift.requiredCertifications.length > 0 ? `Certifications: ${shift.requiredCertifications.join(', ')}` : null,
+              shift.requirements ? `Notes: ${shift.requirements}` : null,
             ].filter(Boolean).map((row) => (
               <div key={row as string} className="text-[11.5px] text-slate py-[5px] border-b border-line last:border-0">
                 {row}

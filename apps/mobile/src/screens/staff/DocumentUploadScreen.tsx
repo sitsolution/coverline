@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -88,6 +88,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
   const [checked, setChecked] = useState(false);
   const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const loadTypes = useCallback(async () => {
     try {
@@ -109,7 +110,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Storage access is needed to pick files.');
+        setToast({ visible: true, message: 'Storage access is needed to pick files.', type: 'info' });
         return;
       }
       const result = await DocumentPicker.getDocumentAsync({
@@ -125,14 +126,14 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         });
       }
     } catch {
-      Alert.alert('Error', 'Could not open file picker.');
+      setToast({ visible: true, message: 'Could not open file picker.', type: 'error' });
     }
   };
 
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Camera access is needed to take a photo.');
+      setToast({ visible: true, message: 'Camera access is needed to take a photo.', type: 'info' });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -149,11 +150,11 @@ export default function DocumentUploadScreen({ navigation }: Props) {
 
   const handleUpload = async () => {
     if (!pickedFile) {
-      Alert.alert('No file', 'Please select or take a photo of your document.');
+      setToast({ visible: true, message: 'Please select or take a photo of your document.', type: 'info' });
       return;
     }
     if (!checked) {
-      Alert.alert('Confirmation required', 'Please confirm the document is valid and belongs to you.');
+      setToast({ visible: true, message: 'Please confirm the document is valid and belongs to you.', type: 'info' });
       return;
     }
 
@@ -166,11 +167,11 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         issueDate: toISODate(issueDate),
         expiryDate: currentType?.requiresExpiry ? toISODate(expiryDate) : undefined,
       });
-      Alert.alert('Uploaded', 'Your document has been submitted for verification.');
+      setToast({ visible: true, message: 'Document submitted for verification.', type: 'success' });
       navigation.goBack();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Upload failed.';
-      Alert.alert('Error', msg);
+      setToast({ visible: true, message: msg, type: 'error' });
     } finally {
       setUploading(false);
     }
@@ -277,6 +278,12 @@ export default function DocumentUploadScreen({ navigation }: Props) {
           <Text style={styles.primaryBtnText}>{uploading ? 'Uploading…' : 'Upload'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

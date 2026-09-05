@@ -65,7 +65,7 @@ function shiftTimeLabel(shift: ShiftItem): string {
 
 function shiftDateLabel(shift: ShiftItem): string {
   const d = new Date(shift.startTime);
-  return `${shift.facilityName} · ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  return `${shift.facility?.name ?? '—'} · ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ function ShiftListRow({ item }: { item: ShiftItem }) {
   return (
     <View style={styles.listRow}>
       <View style={styles.listAvatar}>
-        <Text style={styles.listAvatarText}>{item.facilityInitials}</Text>
+        <Text style={styles.listAvatarText}>{item.facility?.initials || (item.facility?.name ?? '??').slice(0, 2).toUpperCase()}</Text>
       </View>
       <View style={styles.listInfo}>
         <Text style={styles.listTitle}>{shiftDateLabel(item)}</Text>

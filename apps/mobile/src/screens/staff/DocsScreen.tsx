@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { DocsStackParamList } from '../../navigation/DocsStackNavigator';
 import documentService, { DocumentGroup } from '../../services/documentService';
@@ -65,6 +65,7 @@ function DocCard({ group }: { group: DocumentGroup }) {
 export default function DocsScreen({ navigation }: Props) {
   const [groups, setGroups] = useState<DocumentGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,7 +73,7 @@ export default function DocsScreen({ navigation }: Props) {
       const res = await documentService.listDocuments();
       setGroups(res.groups);
     } catch {
-      Alert.alert('Error', 'Failed to load documents');
+      setToast({ visible: true, message: 'Failed to load documents.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -103,6 +104,12 @@ export default function DocsScreen({ navigation }: Props) {
           <Text style={styles.outlineBtnText}>+ Add Other Document</Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

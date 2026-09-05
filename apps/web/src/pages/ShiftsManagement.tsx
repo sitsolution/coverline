@@ -35,6 +35,7 @@ export default function ShiftsManagement() {
   const [shifts, setShifts] = useState<AdminShiftRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [location, setLocation] = useState('');
@@ -42,6 +43,7 @@ export default function ShiftsManagement() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await adminShiftsService.listShifts({
         search: search || undefined,
@@ -52,7 +54,9 @@ export default function ShiftsManagement() {
       });
       setShifts(res.items);
       setTotal(res.total);
-    } catch {} finally {
+    } catch {
+      setError('Failed to load shifts. Please try again.');
+    } finally {
       setLoading(false);
     }
   }, [search, status, location, specialty]);
@@ -67,6 +71,11 @@ export default function ShiftsManagement() {
 
   return (
     <Layout>
+      {error && (
+        <div className="mb-4 px-3 py-[9px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
+          {error}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div>

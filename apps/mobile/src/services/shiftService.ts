@@ -13,6 +13,8 @@ export interface ShiftDetail extends ShiftItem {
   title: string;
   description: string | null;
   requirements: string | null;
+  amenities: string[];
+  address: string | null;
   slots: number;
   slotsFilled: number;
 }

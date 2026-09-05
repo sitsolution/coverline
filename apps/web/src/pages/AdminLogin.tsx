@@ -13,7 +13,6 @@ export default function AdminLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       const res = await adminAuthService.login(email, password);
@@ -21,11 +20,13 @@ export default function AdminLogin() {
         setError('This account does not have admin access.');
         return;
       }
+      setError('');
       saveTokens({
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
         role: res.role,
         userId: res.userId,
+        fullName: res.fullName,
       });
       navigate('/dashboard');
     } catch (err: unknown) {
@@ -64,7 +65,7 @@ export default function AdminLogin() {
             <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Email Address</label>
             <input
               type="email"
-              placeholder="admin@stjosephhosp.in"
+              placeholder="admin@yourhospital.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
 import adminDocumentsService, { DocumentReviewRow } from '../services/adminDocumentsService';
+import { apiError } from '../utils/apiError';
 
 const TABS = ['all', 'pending', 'verified', 'expired', 'rejected'];
 const TAB_LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ export default function DocumentVerification() {
   const [selected, setSelected] = useState<DocumentReviewRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [showReject, setShowReject] = useState(false);
 
@@ -54,11 +56,14 @@ export default function DocumentVerification() {
   const handleVerify = async () => {
     if (!selected || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminDocumentsService.verifyDocument(selected.id);
       setDocs(prev => prev.map(d => d.id === updated.id ? updated : d));
       setSelected(updated);
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to verify document. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -66,13 +71,16 @@ export default function DocumentVerification() {
   const handleReject = async () => {
     if (!selected || !rejectReason.trim() || actionLoading) return;
     setActionLoading(true);
+    setActionError('');
     try {
       const updated = await adminDocumentsService.rejectDocument(selected.id, rejectReason.trim());
       setDocs(prev => prev.map(d => d.id === updated.id ? updated : d));
       setSelected(updated);
       setShowReject(false);
       setRejectReason('');
-    } catch {} finally {
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to reject document. Please try again.'));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -175,6 +183,9 @@ export default function DocumentVerification() {
                 </div>
               )}
 
+              {actionError && (
+                <p className="text-[11px] text-urgent font-semibold mb-2">{actionError}</p>
+              )}
               {showReject ? (
                 <div className="mt-2">
                   <input

@@ -34,7 +34,8 @@ api.interceptors.response.use(
 
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) {
-      clearAuth();
+      // No session to refresh — just reject so the caller handles the error.
+      // Don't redirect: on the login page a 401 is expected (wrong password).
       return Promise.reject(error);
     }
 
@@ -75,7 +76,9 @@ function clearAuth() {
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('user_role');
   localStorage.removeItem('user_id');
-  window.location.href = '/login';
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
 }
 
 export default api;

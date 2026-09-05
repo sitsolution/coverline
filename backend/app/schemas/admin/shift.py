@@ -25,6 +25,9 @@ class AdminShiftRow(CamelModel):
     applicant_count: int = 0
     pay_rate: float
     is_urgent: bool
+    is_night: bool = False
+    is_weekend: bool = False
+    shift_type: Optional[str] = None
     slots: int
     slots_filled: int
 
@@ -100,6 +103,7 @@ class ShiftCreate(CamelModel):
     slots: int = Field(default=1, ge=1, le=50)
 
     is_urgent: bool = False
+    shift_type: Optional[str] = None   # Regular, Emergency, Weekend, Night
     requirements: Optional[str] = None
     required_qualifications: List[str] = []
     required_certifications: List[str] = []

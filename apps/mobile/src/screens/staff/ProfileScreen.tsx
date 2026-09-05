@@ -85,9 +85,11 @@ export default function ProfileScreen({ navigation }: Props) {
           </View>
           <Text style={styles.profileName}>{user?.fullName ?? ''}</Text>
           <Text style={styles.profileTitle}>{p?.specialty ?? roleLabel(user?.role ?? '')}</Text>
-          {p?.preferredLocations && p.preferredLocations.length > 0 && (
-            <Text style={styles.profileLoc}>📍 {p.preferredLocations.join(', ')}</Text>
-          )}
+          {profile?.location ? (
+            <Text style={styles.profileLoc}>📍 {profile.location}</Text>
+          ) : p?.preferredLocations && p.preferredLocations.length > 0 ? (
+            <Text style={styles.profileLoc}>📍 {p.preferredLocations[0]}</Text>
+          ) : null}
           {p && p.rating > 0 && (
             <View style={styles.goldBadge}>
               <Text style={styles.goldBadgeText}>{p.rating.toFixed(1)} ★ · {p.reviewsCount} reviews</Text>
@@ -106,6 +108,7 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text style={styles.sectionTitle}>Professional Information</Text>
             <View style={styles.rowList}>
               {p.credentialNumber ? <InfoRow icon="🪪" title={p.credentialNumber} sub={p.credentialLabel} /> : null}
+              {p.experience ? <InfoRow icon="📆" title={p.experience} sub="Experience" /> : null}
               {p.qualifications ? <InfoRow icon="🎓" title={p.qualifications} sub="Qualifications" isLast /> : null}
             </View>
 

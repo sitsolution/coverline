@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/CalendarStackNavigator';
 import availabilityService, {
@@ -98,6 +98,7 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
   const [prefs, setPrefs] = useState<ShiftPreferencesOut>({ urgentShifts: true, nightShifts: true, weekendShifts: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async () => {
     try {
@@ -105,7 +106,7 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
       setDays(res.days);
       setPrefs(res.preferences);
     } catch {
-      Alert.alert('Error', 'Failed to load availability');
+      setToast({ visible: true, message: 'Failed to load availability.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -128,11 +129,11 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
         days: days.map(d => ({ weekday: d.weekday, isAvailable: d.isAvailable })),
         preferences: prefs,
       });
-      Alert.alert('Saved', 'Your availability has been updated.');
+      setToast({ visible: true, message: 'Availability updated.', type: 'success' });
       navigation.goBack();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to save availability.';
-      Alert.alert('Error', msg);
+      setToast({ visible: true, message: msg, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -213,6 +214,12 @@ export default function SetAvailabilityScreen({ navigation }: Props) {
           <Text style={styles.calendarLink}>View My Calendar</Text>
         </TouchableOpacity>
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

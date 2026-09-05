@@ -8,6 +8,7 @@ export interface LoginResponse {
   userId: number;
   role: string;
   isVerified: boolean;
+  fullName?: string;
 }
 
 const adminAuthService = {

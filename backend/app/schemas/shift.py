@@ -33,6 +33,8 @@ class ShiftListItem(CamelModel):
     pay_rate: float
     status: ShiftStatus
     is_urgent: bool
+    is_night: bool = False
+    is_weekend: bool = False
     tags: List[str] = []
     slots: int
     slots_remaining: int

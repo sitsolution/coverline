@@ -14,7 +14,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.availability import Availability, ShiftPreference
-from app.models.enums import STAFF_ROLES, OtpPurpose, UserRole
+from app.models.enums import STAFF_ROLES, FacilityRole, OtpPurpose, UserRole
 from app.models.facility import Facility, FacilityMember
 from app.models.user import StaffProfile, User, UserSettings
 from app.schemas.auth import (
@@ -45,6 +45,7 @@ def _token_response(user: User) -> dict:
         "user_id": user.id,
         "role": user.role,
         "is_verified": user.is_verified,
+        "full_name": user.full_name,
     }
 
 
@@ -108,7 +109,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         )
         db.add(facility)
         db.flush()
-        db.add(FacilityMember(facility_id=facility.id, user_id=user.id))
+        db.add(FacilityMember(
+            facility_id=facility.id,
+            user_id=user.id,
+            facility_role=FacilityRole.super_admin,
+        ))
 
     _seed_defaults(db, user)
     db.commit()

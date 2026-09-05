@@ -115,6 +115,7 @@ class TokenResponse(CamelModel):
     user_id: int
     role: UserRole
     is_verified: bool
+    full_name: Optional[str] = None
 
 
 class RefreshRequest(CamelModel):

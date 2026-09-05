@@ -30,11 +30,10 @@ class Shift(Base):
 
     status = Column(enum_column(ShiftStatus), default=ShiftStatus.open, nullable=False, index=True)
     is_urgent = Column(Boolean, default=False, nullable=False)
+    shift_type = Column(String(20), nullable=True)   # Regular, Emergency, Weekend, Night
 
-    # Derived from start_time/end_time and kept as real columns so the Shifts
-    # screen's filter chips are one indexed boolean lookup instead of a
-    # dialect-specific date function. Maintained by the listener below, never
-    # set by hand.
+    # Derived from start_time/end_time OR shift_type. Maintained by the
+    # listener below so the filter chips are a single indexed boolean lookup.
     is_night = Column(Boolean, default=False, nullable=False)
     is_weekend = Column(Boolean, default=False, nullable=False)
 
@@ -112,11 +111,17 @@ def compute_weekend(start_time) -> bool:
 @event.listens_for(Shift, "before_insert")
 @event.listens_for(Shift, "before_update")
 def _sync_derived_flags(mapper, connection, target: "Shift") -> None:
-    """Keep is_night/is_weekend in step with the times they derive from, so a
-    caller can never write a row where the flags and the schedule disagree."""
+    """Keep is_night/is_weekend in step with the times and shift_type."""
     if target.start_time and target.end_time:
         target.is_night = compute_night(target.start_time, target.end_time)
         target.is_weekend = compute_weekend(target.start_time)
+    # Explicit shift_type overrides time-based computation
+    if target.shift_type == 'Night':
+        target.is_night = True
+    elif target.shift_type == 'Weekend':
+        target.is_weekend = True
+    elif target.shift_type == 'Emergency':
+        target.is_urgent = True
 
 
 class ShiftFavorite(Base):

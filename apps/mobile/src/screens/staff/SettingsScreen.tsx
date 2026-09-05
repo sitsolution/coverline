@@ -5,10 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
 import { useAuth } from '../../store/auth';
@@ -52,6 +52,7 @@ export default function SettingsScreen({ navigation }: Props) {
   const { logout } = useAuth();
   const [settings, setSettings] = useState<SettingsOut | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoutModal, setLogoutModal] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -79,20 +80,12 @@ export default function SettingsScreen({ navigation }: Props) {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await authService.logout();
-          } catch {}
-          await logout();
-        },
-      },
-    ]);
+  const handleLogout = () => setLogoutModal(true);
+
+  const doLogout = async () => {
+    setLogoutModal(false);
+    try { await authService.logout(); } catch {}
+    await logout();
   };
 
   if (loading) {
@@ -153,6 +146,17 @@ export default function SettingsScreen({ navigation }: Props) {
           <Text style={styles.logoutBtnText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <ConfirmModal
+        visible={logoutModal}
+        title="Log out?"
+        description="Are you sure you want to log out of your account?"
+        confirmLabel="Yes, Log out"
+        dismissLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={doLogout}
+        onDismiss={() => setLogoutModal(false)}
+      />
     </Screen>
   );
 }

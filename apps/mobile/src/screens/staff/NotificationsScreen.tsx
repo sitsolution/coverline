@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import notificationService, { NotificationOut } from '../../services/notificationService';
@@ -40,11 +40,11 @@ function timeAgo(isoString: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function NotifRow({ item, isLast, onMarkRead }: { item: NotificationOut; isLast: boolean; onMarkRead: (id: number) => void }) {
+function NotifRow({ item, isLast, onMarkRead, onPress }: { item: NotificationOut; isLast: boolean; onMarkRead: (id: number) => void; onPress: (item: NotificationOut) => void }) {
   return (
     <TouchableOpacity
       style={[styles.row, isLast && styles.rowLast, !item.isRead && styles.rowUnread]}
-      onPress={() => { if (!item.isRead) onMarkRead(item.id); }}
+      onPress={() => onPress(item)}
       activeOpacity={0.7}
     >
       <View style={styles.avatar}>
@@ -63,6 +63,7 @@ export default function NotificationsScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('All');
   const [notifs, setNotifs] = useState<NotificationOut[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async (tab: TabKey) => {
     setLoading(true);
@@ -70,7 +71,7 @@ export default function NotificationsScreen({ navigation }: Props) {
       const res = await notificationService.listNotifications(TAB_API[tab]);
       setNotifs(res.items);
     } catch {
-      Alert.alert('Error', 'Failed to load notifications');
+      setToast({ visible: true, message: 'Failed to load notifications.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -85,12 +86,22 @@ export default function NotificationsScreen({ navigation }: Props) {
     } catch {}
   };
 
+  const handlePress = async (item: NotificationOut) => {
+    if (!item.isRead) handleMarkRead(item.id);
+    if (item.entityId && (item.category === 'shift_alert' || item.category === 'application')) {
+      (navigation as any).navigate('Shifts', {
+        screen: 'ShiftDetails',
+        params: { shiftId: item.entityId },
+      });
+    }
+  };
+
   const handleMarkAllRead = async () => {
     try {
       await notificationService.markAllRead();
       setNotifs((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch {
-      Alert.alert('Error', 'Could not mark all as read');
+      setToast({ visible: true, message: 'Could not mark all as read.', type: 'error' });
     }
   };
 
@@ -139,11 +150,18 @@ export default function NotificationsScreen({ navigation }: Props) {
                 item={item}
                 isLast={i === notifs.length - 1}
                 onMarkRead={handleMarkRead}
+                onPress={handlePress}
               />
             ))}
           </View>
         )}
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }
