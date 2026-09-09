@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
-import adminBookingsService, { BookingDetail, BookingMessageOut } from '../services/adminBookingsService';
+import adminBookingsService, { BookingDetail } from '../services/adminBookingsService';
 import { apiError } from '../utils/apiError';
 
 type BadgeVariant = 'success' | 'warning' | 'urgent' | 'info' | 'neutral';
@@ -20,8 +20,11 @@ function statusVariant(status: string): BadgeVariant {
 }
 
 function shiftLabel(booking: BookingDetail): string {
-  const d = new Date(booking.shiftStart);
-  return `${booking.shiftLabel} · ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  const start = new Date(booking.shiftStart);
+  const end = new Date(booking.shiftEnd);
+  const fmt = (d: Date) => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const dateStr = start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${booking.shiftLabel} · ${dateStr}, ${fmt(start)} – ${fmt(end)}`;
 }
 
 function msgTime(iso: string): string {
@@ -34,8 +37,7 @@ export default function BookingDetails() {
   const { id } = useParams<{ id: string }>();
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [showCancelPanel, setShowCancelPanel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -44,27 +46,24 @@ export default function BookingDetails() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setLoadError('');
     try {
       const data = await adminBookingsService.getBooking(parseInt(id));
       setBooking(data);
-    } catch {} finally {
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      const status = err?.response?.status;
+      if (status === 404) {
+        setLoadError('Booking not found.');
+      } else {
+        setLoadError(detail ? `Error: ${detail}` : `Failed to load booking (${status ?? 'network error'}).`);
+      }
+    } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
-
-  const handleSendMessage = async () => {
-    if (!message.trim() || !id || sending) return;
-    setSending(true);
-    try {
-      const msg: BookingMessageOut = await adminBookingsService.sendMessage(parseInt(id), message.trim());
-      setBooking(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
-      setMessage('');
-    } catch {} finally {
-      setSending(false);
-    }
-  };
 
   const handleComplete = async () => {
     if (!id || actionLoading) return;
@@ -100,8 +99,8 @@ export default function BookingDetails() {
     return <Layout><p className="text-slate text-[12px]">Loading…</p></Layout>;
   }
 
-  if (!booking) {
-    return <Layout><p className="text-slate text-[12px]">Booking not found.</p></Layout>;
+  if (loadError || !booking) {
+    return <Layout><p className="text-urgent text-[12px]">{loadError || 'Booking not found.'}</p></Layout>;
   }
 
   return (
@@ -127,7 +126,10 @@ export default function BookingDetails() {
                   item.done ? 'border-success text-ink' : 'border-line text-slate-2'
                 }`}
               >
-                {item.label}{item.at ? ` — ${new Date(item.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                {item.label}
+                {item.at
+                  ? ` — ${new Date(item.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                  : !item.done ? <span className="text-slate-2"> — pending</span> : ''}
               </div>
             ))}
           </Panel>
@@ -148,29 +150,12 @@ export default function BookingDetails() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 mt-3">
-              <input
-                type="text"
-                placeholder="Type a message…"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                className="flex-1 px-3 py-[9px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={sending}
-                className="bg-navy text-white text-[12px] font-bold px-4 py-[9px] rounded-[9px] disabled:opacity-60"
-              >
-                Send
-              </button>
-            </div>
           </Panel>
         </div>
 
         {/* Right */}
         <div>
-          <Panel title="Staff Member">
+          <Panel title="Doctor">
             <div className="flex gap-[10px] items-center">
               <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center font-extrabold text-[12px] text-navy flex-shrink-0">
                 {booking.staffInitials}
@@ -202,7 +187,7 @@ export default function BookingDetails() {
                 href={`mailto:${booking.staffEmail}`}
                 className="block w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 text-center"
               >
-                Contact Staff
+                Contact Doctor
               </a>
             )}
             {['confirmed', 'upcoming'].includes(booking.status) && (

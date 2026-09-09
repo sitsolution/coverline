@@ -40,6 +40,36 @@ function SelectField({
 
 const SHIFT_TYPES = ['Regular', 'Emergency', 'Weekend', 'Night'];
 
+const ROLE_OPTIONS = ['doctor', 'nurse', 'ot_tech', 'housekeeping'];
+const ROLE_LABELS: Record<string, string> = {
+  doctor: 'Doctor',
+  nurse: 'Nurse',
+  ot_tech: 'OT Technician',
+  housekeeping: 'Housekeeping',
+};
+
+// Specialties per role — sourced from the mobile signup screens
+const ROLE_SPECIALTIES: Record<string, string[]> = {
+  doctor: ['General Medicine', 'Emergency Medicine', 'Anaesthesia', 'Pediatrics'],
+  nurse: ['ICU Nursing', 'General Ward', 'OT Nursing', 'Pediatric Nursing', 'Emergency Nursing'],
+  ot_tech: ['General Ward', 'OT', 'ICU', 'Emergency'],
+  housekeeping: ['General Ward', 'OT Housekeeping', 'Admin Block', 'ICU'],
+};
+
+const ROLE_QUALIFICATIONS: Record<string, string[]> = {
+  doctor: ['MBBS', 'MD/MS', 'DNB'],
+  nurse: ['GNM', 'B.Sc. Nursing', 'Post Basic B.Sc. Nursing'],
+  ot_tech: ['Diploma in OT Technology', 'B.Sc. OT Technology', 'Allied Health Council'],
+  housekeeping: [],
+};
+
+const ROLE_CERTIFICATIONS: Record<string, string[]> = {
+  doctor: ['BLS', 'ACLS'],
+  nurse: ['BLS', 'ACLS'],
+  ot_tech: ['BLS'],
+  housekeeping: [],
+};
+
 export default function CreateShift() {
   const navigate = useNavigate();
   const [options, setOptions] = useState<ShiftFormOptions | null>(null);
@@ -49,6 +79,7 @@ export default function CreateShift() {
 
   // Form state
   const [title, setTitle] = useState('');
+  const [role, setRole] = useState('doctor');
   const [facilityId, setFacilityId] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [shiftType, setShiftType] = useState('Regular');
@@ -66,7 +97,7 @@ export default function CreateShift() {
   useEffect(() => {
     adminShiftsService.getFormOptions().then((opts) => {
       setOptions(opts);
-      if (opts.specialties.length > 0) setSpecialty(opts.specialties[0]);
+      setSpecialty(ROLE_SPECIALTIES['doctor'][0]);
       if (opts.facilities.length > 0) setFacilityId(String(opts.facilities[0].id));
     }).catch(() => {});
   }, []);
@@ -102,6 +133,7 @@ export default function CreateShift() {
       const shift = await adminShiftsService.createShift({
         title: title || undefined,
         facilityId: facilityId ? parseInt(facilityId) : undefined,
+        role,
         specialty,
         isUrgent: shiftType === 'Emergency',
         shiftType,
@@ -133,9 +165,6 @@ export default function CreateShift() {
   };
 
   const facilityOptions = options?.facilities ?? [];
-  const specialtyOptions = options?.specialties ?? [];
-  const qualificationOptions = options?.qualifications ?? [];
-  const certificationOptions = options?.certifications ?? [];
 
   return (
     <Layout>
@@ -170,8 +199,22 @@ export default function CreateShift() {
             </div>
 
             <SelectField
+              label="Role Needed"
+              options={ROLE_OPTIONS}
+              labels={ROLE_LABELS}
+              value={role}
+              onChange={(v) => {
+                setRole(v);
+                setSpecialty(ROLE_SPECIALTIES[v][0]);
+                setRequiredQualification('');
+                setRequiredCertification('');
+                clearFieldError('specialty');
+              }}
+            />
+
+            <SelectField
               label="Department / Specialty"
-              options={specialtyOptions}
+              options={ROLE_SPECIALTIES[role]}
               value={specialty}
               onChange={(v) => { setSpecialty(v); clearFieldError('specialty'); }}
               error={fieldErrors.specialty}
@@ -212,18 +255,25 @@ export default function CreateShift() {
           </Panel>
 
           <Panel title="Requirements">
-            <SelectField
-              label="Required Qualifications"
-              options={['', ...qualificationOptions]}
-              value={requiredQualification}
-              onChange={setRequiredQualification}
-            />
-            <SelectField
-              label="Required Certifications"
-              options={['', ...certificationOptions]}
-              value={requiredCertification}
-              onChange={setRequiredCertification}
-            />
+            {ROLE_QUALIFICATIONS[role].length > 0 && (
+              <SelectField
+                label="Required Qualifications"
+                options={['', ...ROLE_QUALIFICATIONS[role]]}
+                value={requiredQualification}
+                onChange={setRequiredQualification}
+              />
+            )}
+            {ROLE_CERTIFICATIONS[role].length > 0 && (
+              <SelectField
+                label="Required Certifications"
+                options={['', ...ROLE_CERTIFICATIONS[role]]}
+                value={requiredCertification}
+                onChange={setRequiredCertification}
+              />
+            )}
+            {ROLE_QUALIFICATIONS[role].length === 0 && ROLE_CERTIFICATIONS[role].length === 0 && (
+              <p className="text-[11.5px] text-slate mb-[13px]">No qualification or certification requirements for this role.</p>
+            )}
             <FormField
               label="Additional Notes"
               placeholder="Must be comfortable with trauma cases"
@@ -253,7 +303,7 @@ export default function CreateShift() {
           </Panel>
 
           <Panel title="Visibility">
-            <ToggleSwitch label="Make Visible to All Doctors" defaultOn={true} onChange={setIsVisible} />
+            <ToggleSwitch label={`Make Visible to All ${ROLE_LABELS[role] ?? 'Staff'}s`} defaultOn={true} onChange={setIsVisible} />
             <ToggleSwitch label="Send Notifications" defaultOn={true} onChange={setNotifyStaff} />
           </Panel>
 

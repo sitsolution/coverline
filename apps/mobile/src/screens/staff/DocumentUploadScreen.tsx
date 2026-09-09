@@ -96,7 +96,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
       setDocTypes(types);
       if (types.length > 0) setSelectedType(types[0].value);
     } catch {
-      // Fallback: show empty picker
+      setToast({ visible: true, message: 'Could not load document types. Pull down to retry.', type: 'error' });
     } finally {
       setLoadingTypes(false);
     }
@@ -108,11 +108,6 @@ export default function DocumentUploadScreen({ navigation }: Props) {
 
   const handleBrowseFile = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        setToast({ visible: true, message: 'Storage access is needed to pick files.', type: 'info' });
-        return;
-      }
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/jpeg', 'image/png'],
         copyToCacheDirectory: true,
@@ -137,7 +132,7 @@ export default function DocumentUploadScreen({ navigation }: Props) {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
       allowsEditing: false,
     });

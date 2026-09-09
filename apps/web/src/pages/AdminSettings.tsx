@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Panel from '../components/ui/Panel';
 import Badge from '../components/ui/Badge';
+import Modal from '../components/ui/Modal';
 import adminSettingsService, { FacilityProfileOut, AdminUserRow } from '../services/adminSettingsService';
+import { useAuth } from '../store/auth';
 
 const NAV_ITEMS = [
   'Facility Profile',
@@ -17,6 +19,7 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminSettings() {
+  const { userId: currentUserId } = useAuth();
   const [activeNav, setActiveNav] = useState('Facility Profile');
   const [profile, setProfile] = useState<FacilityProfileOut | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,9 @@ export default function AdminSettings() {
   // Users tab
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<AdminUserRow | null>(null);
+  const [removeError, setRemoveError] = useState('');
 
   // Editable fields
   const [name, setName] = useState('');
@@ -64,6 +70,21 @@ export default function AdminSettings() {
   useEffect(() => {
     if (activeNav === 'Users & Permissions') loadUsers();
   }, [activeNav, loadUsers]);
+
+  const handleRemoveConfirmed = async () => {
+    if (!confirmRemove) return;
+    setRemovingId(confirmRemove.memberId);
+    setRemoveError('');
+    try {
+      await adminSettingsService.removeUser(confirmRemove.memberId);
+      setUsers(prev => prev.filter(u => u.memberId !== confirmRemove.memberId));
+      setConfirmRemove(null);
+    } catch (err: any) {
+      setRemoveError(err?.response?.data?.detail ?? 'Failed to remove user.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -213,6 +234,7 @@ export default function AdminSettings() {
                       <th>Email</th>
                       <th>Role</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -232,6 +254,16 @@ export default function AdminSettings() {
                             variant={u.acceptedAt ? 'success' : 'warning'}
                           />
                         </td>
+                        <td className="text-[12px]">
+                          {u.id !== currentUserId && (
+                            <span
+                              onClick={() => { setConfirmRemove(u); setRemoveError(''); }}
+                              className="text-urgent font-semibold cursor-pointer hover:underline"
+                            >
+                              Remove
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -247,6 +279,18 @@ export default function AdminSettings() {
           </Panel>
         )}
       </div>
+
+      {confirmRemove && (
+        <Modal
+          title="Remove admin user?"
+          message={`${confirmRemove.name} will lose access to this facility immediately.${removeError ? `\n\nError: ${removeError}` : ''}`}
+          confirmLabel="Remove"
+          confirmVariant="danger"
+          loading={removingId === confirmRemove.memberId}
+          onConfirm={handleRemoveConfirmed}
+          onCancel={() => { setConfirmRemove(null); setRemoveError(''); }}
+        />
+      )}
     </Layout>
   );
 }

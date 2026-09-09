@@ -71,6 +71,7 @@ def _row(shift: Shift, pending: int, assigned: List[str]) -> AdminShiftRow:
     return AdminShiftRow(
         id=shift.id,
         reference=shift_reference(shift.id),
+        title=shift.title if shift.title and shift.title != shift.specialty else None,
         start_time=shift.start_time,
         end_time=shift.end_time,
         location=shift.facility.location_label,

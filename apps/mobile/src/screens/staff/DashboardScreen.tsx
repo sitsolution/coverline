@@ -4,19 +4,29 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
+import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import userService, { DashboardResponse, ShiftItem } from '../../services/userService';
 import shiftService from '../../services/shiftService';
 import Toast, { ToastType } from '../../components/ui/Toast';
 import EmptyState from '../../components/ui/EmptyState';
 
-type Props = { navigation: NativeStackNavigationProp<HomeStackParamList, 'Dashboard'> };
+type DashboardNavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList, 'Dashboard'>,
+  BottomTabNavigationProp<StaffTabParamList>
+>;
+
+type Props = { navigation: DashboardNavProp };
 
 function formatShiftDate(isoString: string): string {
   const date = new Date(isoString);
@@ -151,6 +161,7 @@ export default function DashboardScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  const { refreshing, onRefresh } = useRefresh(loadDashboard);
 
   const handleApply = async (shiftId: number) => {
     try {
@@ -190,7 +201,10 @@ export default function DashboardScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}
+      >
         {/* Header Row */}
         <View style={styles.headerRow}>
           <View style={styles.avatarRow}>
@@ -223,7 +237,7 @@ export default function DashboardScreen({ navigation }: Props) {
         {/* Urgent Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Urgent Shifts Near You</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Shifts' as never)}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
         {(dashboard?.urgentShifts?.length ?? 0) > 0 ? (
@@ -247,7 +261,7 @@ export default function DashboardScreen({ navigation }: Props) {
         {/* Recommended Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recommended for You</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Shifts' as never)}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
         {(dashboard?.recommendedShifts?.length ?? 0) > 0 ? (
@@ -260,7 +274,7 @@ export default function DashboardScreen({ navigation }: Props) {
             title="No recommendations yet"
             subtitle="Complete your profile and set availability to get personalised shift suggestions."
             buttonLabel="Set Availability"
-            onPress={() => navigation.navigate('Calendar' as never)}
+            onPress={() => navigation.navigate('Calendar')}
           />
         )}
 

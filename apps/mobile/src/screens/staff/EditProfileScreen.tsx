@@ -23,8 +23,27 @@ type Props = {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const SPECIALTIES = ['Emergency Medicine', 'General Medicine', 'Pediatrics'];
-const EXPERIENCE  = ['1–2 years', '3–5 years', '6–10 years', '10+ years'];
+const EXPERIENCE = ['1–2 years', '3–5 years', '6–10 years', '10+ years'];
+
+// Matches the options shown on each role's signup screen
+const ROLE_SPECIALTY_CONFIG: Record<string, { label: string; options: string[] }> = {
+  doctor: {
+    label: 'Specialty',
+    options: ['General Medicine', 'Emergency Medicine', 'Anaesthesia', 'Pediatrics'],
+  },
+  nurse: {
+    label: 'Nursing Specialty',
+    options: ['ICU Nursing', 'General Ward', 'OT Nursing', 'Pediatric Nursing', 'Emergency Nursing'],
+  },
+  ot_tech: {
+    label: 'Certifying Body',
+    options: ['Diploma in OT Technology', 'B.Sc. OT Technology', 'Allied Health Council'],
+  },
+  housekeeping: {
+    label: 'Preferred Work Area',
+    options: ['General Ward', 'OT Housekeeping', 'Admin Block', 'ICU'],
+  },
+};
 
 function formatDate(d: Date) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -111,7 +130,8 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [phone,      setPhone]      = useState('');
   const [dob,        setDob]        = useState<Date | null>(null);
   const [initials,   setInitials]   = useState('?');
-  const [specialty,  setSpecialty]  = useState(SPECIALTIES[0]);
+  const [role,       setRole]       = useState('doctor');
+  const [specialty,  setSpecialty]  = useState('');
   const [experience, setExperience] = useState(EXPERIENCE[2]);
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
@@ -125,8 +145,11 @@ export default function EditProfileScreen({ navigation }: Props) {
         setEmail(data.user.email ?? '');
         setPhone(data.user.phone ?? '');
         setInitials(data.user.fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase());
+        const userRole = data.user.role;
+        setRole(userRole);
+        const config = ROLE_SPECIALTY_CONFIG[userRole] ?? ROLE_SPECIALTY_CONFIG.doctor;
+        setSpecialty(data.profile?.specialty ?? config.options[0]);
         if (data.dateOfBirth) setDob(new Date(data.dateOfBirth));
-        if (data.profile?.specialty) setSpecialty(data.profile.specialty);
         if (data.profile?.experience) setExperience(data.profile.experience);
       } catch {} finally { setLoading(false); }
     })();
@@ -192,8 +215,13 @@ export default function EditProfileScreen({ navigation }: Props) {
         </View>
         <InputField label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <DateField  label="Date of Birth" value={dob}  onChange={setDob} />
-        <PickerField label="Specialty"            options={SPECIALTIES} value={specialty}  onSelect={setSpecialty} />
-        <PickerField label="Years of Experience"  options={EXPERIENCE}  value={experience} onSelect={setExperience} />
+        <PickerField
+          label={(ROLE_SPECIALTY_CONFIG[role] ?? ROLE_SPECIALTY_CONFIG.doctor).label}
+          options={(ROLE_SPECIALTY_CONFIG[role] ?? ROLE_SPECIALTY_CONFIG.doctor).options}
+          value={specialty}
+          onSelect={setSpecialty}
+        />
+        <PickerField label="Years of Experience" options={EXPERIENCE} value={experience} onSelect={setExperience} />
 
         {/* Cancel / Save buttons */}
         <View style={styles.btnRow}>

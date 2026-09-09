@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import Screen from '../../components/ui/Screen';
 import ConfirmModal from '../../components/ui/ConfirmModal';
@@ -21,16 +22,21 @@ function SectionTitle({ label }: { label: string }) {
   return <Text style={styles.sectionTitle}>{label}</Text>;
 }
 
-function InfoRow({ icon, title, sub, isLast }: { icon: string; title: string; sub?: string; isLast?: boolean }) {
-  return (
+function NavRow({ icon, title, sub, isLast, onPress }: { icon: string; title: string; sub?: string; isLast?: boolean; onPress?: () => void }) {
+  const inner = (
     <View style={[styles.row, isLast && styles.rowLast]}>
       <View style={styles.avatar}><Text style={styles.avatarText}>{icon}</Text></View>
       <View style={styles.rowInfo}>
         <Text style={styles.rowTitle}>{title}</Text>
         {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
       </View>
+      {onPress && <Text style={styles.chevron}>›</Text>}
     </View>
   );
+  if (onPress) {
+    return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{inner}</TouchableOpacity>;
+  }
+  return inner;
 }
 
 function ToggleRow({ label, on, isLast, onToggle }: { label: string; on: boolean; isLast: boolean; onToggle: () => void }) {
@@ -111,35 +117,37 @@ export default function SettingsScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
         <SectionTitle label="Account" />
         <View style={styles.rowList}>
-          <InfoRow icon="🔒" title="Change Password" />
-          <InfoRow icon="📱" title="Phone Number" />
-          <InfoRow icon="✉" title="Email Preferences" isLast />
+          <NavRow icon="🔒" title="Change Password" onPress={() => navigation.navigate('ChangePassword')} />
+          <NavRow icon="📱" title="Phone Number"    onPress={() => navigation.navigate('EditProfile')} isLast />
         </View>
 
         <SectionTitle label="Notifications" />
         {settings && (
           <>
             <ToggleRow label="Push Notifications" on={settings.pushNotifications} isLast={false} onToggle={() => updateToggle('pushNotifications')} />
-            <ToggleRow label="SMS Alerts" on={settings.smsAlerts} isLast={false} onToggle={() => updateToggle('smsAlerts')} />
-            <ToggleRow label="Email Alerts" on={settings.emailAlerts} isLast onToggle={() => updateToggle('emailAlerts')} />
+            <ToggleRow label="SMS Alerts"         on={settings.smsAlerts}         isLast={false} onToggle={() => updateToggle('smsAlerts')} />
+            <ToggleRow label="Email Alerts"       on={settings.emailAlerts}       isLast        onToggle={() => updateToggle('emailAlerts')} />
           </>
         )}
 
         <SectionTitle label="Privacy" />
         <View style={styles.rowList}>
-          <InfoRow icon="👁" title="Profile Visibility" />
-          <InfoRow icon="🛡" title="Data & Security" isLast />
+          {settings && (
+            <ToggleRow label="Profile Visible to Facilities" on={settings.profileVisible} isLast={false} onToggle={() => updateToggle('profileVisible')} />
+          )}
+          <NavRow icon="🛡" title="Data & Security" onPress={() => navigation.navigate('DataSecurity')} isLast />
         </View>
 
         <SectionTitle label="Help & Support" />
         <View style={styles.rowList}>
-          <TouchableOpacity onPress={() => navigation.navigate('HelpSupport')} activeOpacity={0.7}>
-            <InfoRow icon="❓" title="FAQ" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('HelpSupport')} activeOpacity={0.7}>
-            <InfoRow icon="💬" title="Contact Support" />
-          </TouchableOpacity>
-          <InfoRow icon="🐞" title="Report a Bug" isLast />
+          <NavRow icon="❓" title="FAQ"             onPress={() => navigation.navigate('HelpSupport')} />
+          <NavRow icon="💬" title="Contact Support" onPress={() => navigation.navigate('HelpSupport')} />
+          <NavRow
+            icon="🐞"
+            title="Report a Bug"
+            onPress={() => Linking.openURL('mailto:support@coverline.in?subject=Bug%20Report&body=Describe%20the%20issue%20here…')}
+            isLast
+          />
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={handleLogout}>
@@ -178,6 +186,7 @@ const styles = StyleSheet.create({
   rowInfo: { flex: 1 },
   rowTitle: { fontSize: 12.5, fontWeight: '700', color: '#14202E' },
   rowSub: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
+  chevron: { fontSize: 20, color: '#A9B8C4', marginLeft: 4 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#DCE4EA' },
   toggleRowLast: { borderBottomWidth: 0 },
   toggleLabel: { fontSize: 12.5, fontWeight: '600', color: '#14202E' },

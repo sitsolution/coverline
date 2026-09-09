@@ -44,9 +44,6 @@ export interface InvoiceListResponse {
   counts: Record<string, number>;
   kpis: KpiCard[];
   paymentMethod?: PaymentMethodOut;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
 }
 
 const adminBillingService = {
@@ -65,8 +62,14 @@ const adminBillingService = {
     return data;
   },
 
-  downloadInvoice: (id: number) => {
-    window.open(`/api/v1/admin/billing/${id}/download`, '_blank');
+  downloadInvoice: async (id: number) => {
+    const { data } = await api.get(`/admin/billing/${id}/download`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoice-${id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 };
 

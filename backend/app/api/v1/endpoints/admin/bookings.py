@@ -98,9 +98,11 @@ def _row(application: Application) -> BookingRow:
         shift_id=shift.id,
         shift_label=f"{shift.title or shift.specialty}",
         shift_start=shift.start_time,
+        shift_end=shift.end_time,
         staff_id=staff.id,
         staff_name=staff.full_name,
         staff_initials=staff.initials,
+        staff_email=staff.email,
         booked_on=application.applied_at,
         status=application.status.value,
         display_status=booking_display_status(application),
@@ -246,7 +248,7 @@ def _timeline(application: Application) -> List[TimelineEntry]:
 
     entries = [
         TimelineEntry(label="Shift created", at=shift.created_at, done=True),
-        TimelineEntry(label="Staff applied", at=application.applied_at, done=True),
+        TimelineEntry(label="Doctor applied", at=application.applied_at, done=True),
         TimelineEntry(
             label="Booking confirmed",
             at=application.responded_at,
@@ -287,7 +289,6 @@ def get_booking(
         specialty=shift.specialty,
         pay_rate=float(shift.pay_rate),
         duration_hours=shift.duration_hours,
-        staff_email=staff.email,
         staff_phone=staff.phone,
         staff_rating=float(profile.rating) if profile and profile.rating else 0.0,
         staff_specialty=profile.specialty if profile else None,

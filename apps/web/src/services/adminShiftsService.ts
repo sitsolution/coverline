@@ -3,6 +3,7 @@ import api from './api';
 export interface AdminShiftRow {
   id: number;
   reference: string;
+  title?: string;
   startTime: string;
   endTime: string;
   location: string;

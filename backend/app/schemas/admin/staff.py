@@ -42,6 +42,7 @@ class StaffShiftHistoryRow(CamelModel):
     end_time: datetime
     status: str
     pay_rate: float
+    rating_given: Optional[float] = None
 
 
 class StaffReviewOut(CamelModel):
@@ -64,6 +65,7 @@ class StaffNoteOut(CamelModel):
 class StaffStats(CamelModel):
     shifts_completed: int
     shifts_at_this_facility: int
+    completion_rate: int   # percentage
     rating: float
     reviews_count: int
     cancellation_count: int

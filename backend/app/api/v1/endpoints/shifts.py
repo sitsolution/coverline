@@ -10,7 +10,7 @@ from app.core.deps import get_current_staff, get_current_user
 from app.models.application import Application
 from app.models.availability import ShiftPreference
 from app.models.enums import ApplicationStatus, NotificationCategory, ShiftStatus, UserRole
-from app.models.facility import Facility
+from app.models.facility import Facility, FacilityMember
 from app.models.shift import Shift, ShiftFavorite
 from app.models.user import StaffProfile, User
 from app.schemas.application import ApplicationOut, ApplyRequest
@@ -339,6 +339,7 @@ def apply_to_shift(
         application = Application(shift_id=shift_id, staff_id=current_user.id, note=payload.note)
         db.add(application)
 
+    # Notify the applying staff member
     notify(
         db,
         user_id=current_user.id,
@@ -349,6 +350,24 @@ def apply_to_shift(
         entity_id=shift.id,
         commit=False,
     )
+    # Notify all admins of the facility that a new application arrived
+    admin_ids = [
+        m.user_id
+        for m in db.query(FacilityMember)
+        .filter(FacilityMember.facility_id == shift.facility_id)
+        .all()
+    ]
+    for admin_id in admin_ids:
+        notify(
+            db,
+            user_id=admin_id,
+            category=NotificationCategory.application,
+            title="New application",
+            body=f"{current_user.full_name} applied for {shift.specialty} · {shift.facility.name}",
+            entity_type="shift",
+            entity_id=shift.id,
+            commit=False,
+        )
     db.commit()
     db.refresh(application)
 

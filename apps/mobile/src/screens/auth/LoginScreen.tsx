@@ -83,8 +83,9 @@ export default function LoginScreen({ navigation }: Props) {
         <TouchableOpacity
           onPress={() => navigation.navigate('ForgotPassword')}
           style={styles.forgotRow}
+          disabled={loading}
         >
-          <Text style={styles.forgotText}>Forgot Password?</Text>
+          <Text style={[styles.forgotText, loading && { opacity: 0.4 }]}>Forgot Password?</Text>
         </TouchableOpacity>
 
         <Button title="Login" onPress={handleLogin} loading={loading} style={styles.loginBtn} />
@@ -110,8 +111,9 @@ export default function LoginScreen({ navigation }: Props) {
         <TouchableOpacity
           onPress={() => navigation.navigate('SelectRole')}
           style={styles.signupLink}
+          disabled={loading}
         >
-          <Text style={styles.signupLinkText}>
+          <Text style={[styles.signupLinkText, loading && { opacity: 0.4 }]}>
             Don't have an account?{' '}
             <Text style={styles.link}>Sign Up</Text>
           </Text>

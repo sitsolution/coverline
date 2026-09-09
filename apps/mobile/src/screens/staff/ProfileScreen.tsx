@@ -4,9 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
@@ -54,6 +56,7 @@ export default function ProfileScreen({ navigation }: Props) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  const { refreshing, onRefresh } = useRefresh(load);
 
   if (loading) {
     return (
@@ -78,7 +81,7 @@ export default function ProfileScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         <View style={styles.profileCenter}>
           <View style={styles.avatarLg}>
             <Text style={styles.avatarLgText}>{user ? getInitials(user.fullName) : '?'}</Text>

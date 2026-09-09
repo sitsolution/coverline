@@ -4,9 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -99,6 +101,7 @@ export default function EarningsScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const { refreshing, onRefresh } = useRefresh(load);
 
   const handleRequestPayout = async () => {
     setPayingOut(true);
@@ -149,7 +152,7 @@ export default function EarningsScreen({ navigation }: Props) {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
 
         {/* Hero gradient card */}
         <LinearGradient

@@ -5,6 +5,8 @@ import EditProfileScreen from '../screens/staff/EditProfileScreen';
 import EarningsScreen from '../screens/staff/EarningsScreen';
 import SettingsScreen from '../screens/staff/SettingsScreen';
 import HelpSupportScreen from '../screens/staff/HelpSupportScreen';
+import ChangePasswordScreen from '../screens/staff/ChangePasswordScreen';
+import DataSecurityScreen from '../screens/staff/DataSecurityScreen';
 
 export type ProfileStackParamList = {
   ProfileMain: undefined;
@@ -12,6 +14,8 @@ export type ProfileStackParamList = {
   Earnings: undefined;
   Settings: undefined;
   HelpSupport: undefined;
+  ChangePassword: undefined;
+  DataSecurity: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -24,6 +28,8 @@ export default function ProfileStackNavigator() {
       <Stack.Screen name="Earnings" component={EarningsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="DataSecurity" component={DataSecurityScreen} />
     </Stack.Navigator>
   );
 }

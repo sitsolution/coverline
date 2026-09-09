@@ -108,6 +108,12 @@ export default function Bookings() {
                       className="text-navy-2 font-semibold cursor-pointer hover:underline"
                       onClick={() => navigate(`/bookings/${r.id}`)}
                     >View</span>
+                    {['confirmed', 'upcoming', 'pending'].includes(r.status) && r.staffEmail && (
+                      <>
+                        {' · '}
+                        <a href={`mailto:${r.staffEmail}`} className="text-navy-2 font-semibold hover:underline">Contact</a>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

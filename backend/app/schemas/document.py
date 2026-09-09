@@ -8,6 +8,7 @@ from app.schemas.base import CamelModel
 class DocumentOut(CamelModel):
     id: int
     doc_type: DocumentType
+    doc_type_label: str = ''
     label: Optional[str] = None
     display_name: str
     document_number: Optional[str] = None

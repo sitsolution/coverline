@@ -62,6 +62,7 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
       // RootNavigator will automatically route based on role
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Invalid or expired code. Please try again.';
+      setOtp('');
       showToast(msg);
     } finally {
       setLoading(false);

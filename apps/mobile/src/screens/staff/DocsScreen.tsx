@@ -4,9 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -80,6 +82,7 @@ export default function DocsScreen({ navigation }: Props) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  const { refreshing, onRefresh } = useRefresh(load);
 
   return (
     <Screen style={styles.container}>
@@ -91,7 +94,7 @@ export default function DocsScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         {loading ? (
           <ActivityIndicator color="#0F3D5C" style={{ marginTop: 40 }} />
         ) : groups.length === 0 ? (

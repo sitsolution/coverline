@@ -12,6 +12,7 @@ class AdminShiftRow(CamelModel):
 
     id: int
     reference: str                 # "#SH-2291"
+    title: Optional[str] = None
     start_time: datetime
     end_time: datetime
     location: str

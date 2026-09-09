@@ -4,10 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +41,7 @@ function AppCard({ item, tab, onCancel }: { item: ApplicationOut; tab: TabKey; o
     { bg: '#FBECDC', color: '#C97A2B' };
 
   const shift = item.shift;
+  if (!shift) return null;
 
   return (
     <View style={styles.card}>
@@ -102,6 +105,8 @@ export default function MyApplicationsScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { load(activeTab); }, [load, activeTab]);
+  const loadCurrent = useCallback(() => load(activeTab), [load, activeTab]);
+  const { refreshing, onRefresh } = useRefresh(loadCurrent);
 
   const handleCancel = async (id: number) => {
     Alert.alert('Cancel Application', 'Are you sure you want to cancel this application?', [
@@ -140,7 +145,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         <View style={styles.segmented}>
           {TABS.map((tab) => {
             const active = activeTab === tab;

@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity,
   TextInput, ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import EmptyState from '../../components/ui/EmptyState';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
+import { useFocusEffect } from '@react-navigation/native';
 import shiftService from '../../services/shiftService';
 import { ShiftItem } from '../../services/userService';
 
@@ -112,13 +114,18 @@ export default function ShiftsScreen({ navigation }: Props) {
     }
   }, []);
 
+  const loadCurrent = useCallback(() => load(search, selectedLocation, selectedSpecialty), [load, search, selectedLocation, selectedSpecialty]);
+  const { refreshing, onRefresh } = useRefresh(loadCurrent);
+
   useEffect(() => {
-    load();
     shiftService.getFilters().then((f) => {
       setLocations(f.locations);
       setSpecialties(f.specialties);
     }).catch(() => {});
-  }, [load]);
+  }, []);
+
+  // Load (and reload when returning from ShiftDetails) with current filters
+  useFocusEffect(useCallback(() => { load(search, selectedLocation, selectedSpecialty); }, [load, search, selectedLocation, selectedSpecialty]));
 
   const handleSearchChange = (text: string) => {
     setSearch(text);
@@ -229,6 +236,7 @@ export default function ShiftsScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         onScrollBeginDrag={() => setOpenDrop(null)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}
       >
         {loading ? (
           <ActivityIndicator color="#0F3D5C" style={{ marginTop: 40 }} />

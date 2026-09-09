@@ -43,7 +43,10 @@ const adminDocumentsService = {
     return data;
   },
 
-  getFileUrl: (id: number): string => `/api/v1/admin/documents/${id}/file`,
+  fetchFileBlob: async (id: number): Promise<string> => {
+    const { data } = await api.get(`/admin/documents/${id}/file`, { responseType: 'blob' });
+    return URL.createObjectURL(data);
+  },
 
   verifyDocument: async (id: number): Promise<DocumentReviewRow> => {
     const { data } = await api.post(`/admin/documents/${id}/verify`);

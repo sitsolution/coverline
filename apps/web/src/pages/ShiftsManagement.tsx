@@ -143,7 +143,10 @@ export default function ShiftsManagement() {
                 <tr><td colSpan={8} className="text-center text-[12px] text-slate py-8">No shifts match your filters.</td></tr>
               ) : shifts.map((s) => (
                 <tr key={s.id}>
-                  <td className="font-semibold">{s.reference}</td>
+                  <td>
+                    <span className="font-semibold">{s.reference}</span>
+                    {s.title && <p className="text-[10.5px] text-slate mt-[1px]">{s.title}</p>}
+                  </td>
                   <td>{shiftDateLabel(s.startTime)}</td>
                   <td>{shiftTimeRange(s.startTime, s.endTime)}</td>
                   <td>{s.location}</td>

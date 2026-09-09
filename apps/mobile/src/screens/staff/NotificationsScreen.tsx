@@ -4,16 +4,26 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
+import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import notificationService, { NotificationOut } from '../../services/notificationService';
 
-type Props = { navigation: NativeStackNavigationProp<HomeStackParamList, 'Notifications'> };
+type NotificationsNavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList, 'Notifications'>,
+  BottomTabNavigationProp<StaffTabParamList>
+>;
+
+type Props = { navigation: NotificationsNavProp };
 
 type TabKey = 'All' | 'Unread' | 'Shift Alerts' | 'Payments';
 const TABS: TabKey[] = ['All', 'Unread', 'Shift Alerts', 'Payments'];
@@ -63,6 +73,7 @@ export default function NotificationsScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('All');
   const [notifs, setNotifs] = useState<NotificationOut[]>([]);
   const [loading, setLoading] = useState(true);
+  const [markingAll, setMarkingAll] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async (tab: TabKey) => {
@@ -78,6 +89,8 @@ export default function NotificationsScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { load(activeTab); }, [load, activeTab]);
+  const loadCurrent = useCallback(() => load(activeTab), [load, activeTab]);
+  const { refreshing, onRefresh } = useRefresh(loadCurrent);
 
   const handleMarkRead = async (id: number) => {
     try {
@@ -89,19 +102,25 @@ export default function NotificationsScreen({ navigation }: Props) {
   const handlePress = async (item: NotificationOut) => {
     if (!item.isRead) handleMarkRead(item.id);
     if (item.entityId && (item.category === 'shift_alert' || item.category === 'application')) {
-      (navigation as any).navigate('Shifts', {
+      navigation.navigate('Shifts', {
         screen: 'ShiftDetails',
         params: { shiftId: item.entityId },
       });
+    } else if (item.category === 'payment' || item.category === 'document') {
+      setToast({ visible: true, message: 'No further action needed for this notification.', type: 'info' });
     }
   };
 
   const handleMarkAllRead = async () => {
+    if (markingAll) return;
+    setMarkingAll(true);
     try {
       await notificationService.markAllRead();
       setNotifs((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch {
       setToast({ visible: true, message: 'Could not mark all as read.', type: 'error' });
+    } finally {
+      setMarkingAll(false);
     }
   };
 
@@ -113,12 +132,14 @@ export default function NotificationsScreen({ navigation }: Props) {
         </TouchableOpacity>
         <Text style={styles.appbarTitle}>Notifications</Text>
         <View style={styles.spacer} />
-        <TouchableOpacity onPress={handleMarkAllRead} activeOpacity={0.8}>
-          <Text style={styles.markAllText}>Mark all read</Text>
+        <TouchableOpacity onPress={handleMarkAllRead} activeOpacity={0.8} disabled={markingAll}>
+          <Text style={[styles.markAllText, markingAll && { opacity: 0.4 }]}>
+            {markingAll ? 'Marking…' : 'Mark all read'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
           {TABS.map((tab) => {
             const active = activeTab === tab;

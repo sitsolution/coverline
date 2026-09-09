@@ -15,9 +15,11 @@ class BookingRow(CamelModel):
     shift_id: int
     shift_label: str               # "ER Night Cover · Sep 14"
     shift_start: datetime
+    shift_end: datetime
     staff_id: int
     staff_name: str
     staff_initials: str
+    staff_email: str
     booked_on: datetime
     status: str                    # stored application status
     display_status: str            # adds "upcoming" for confirmed future shifts
@@ -49,7 +51,6 @@ class BookingDetail(BookingRow):
     specialty: str
     pay_rate: float
     duration_hours: float
-    staff_email: str
     staff_phone: Optional[str] = None
     staff_rating: float
     staff_specialty: Optional[str] = None

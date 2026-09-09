@@ -26,6 +26,7 @@ export interface StaffListResponse {
 export interface StaffStats {
   shiftsCompleted: number;
   shiftsAtThisFacility: number;
+  completionRate: number;
   rating: number;
   reviewsCount: number;
   cancellationCount: number;
@@ -65,6 +66,7 @@ export interface StaffShiftHistoryRow {
   endTime: string;
   status: string;
   payRate: number;
+  ratingGiven?: number;
 }
 
 export interface StaffReviewOut {

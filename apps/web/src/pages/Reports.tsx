@@ -28,6 +28,32 @@ export default function Reports() {
   const bars = data?.shiftsByWeek ?? [];
   const maxBar = bars.length ? Math.max(...bars.map(b => b.value), 1) : 1;
 
+  const exportCsv = () => {
+    if (!data) return;
+    const rows: string[][] = [
+      ['Report', `Reports & Analytics — ${data.periodLabel}`],
+      [],
+      ['KPIs'],
+      ['Metric', 'Value'],
+      ...data.kpis.map(k => [k.label, k.value]),
+      [],
+      ['Top Doctors'],
+      ['Doctor', 'Shifts Completed', 'Avg Rating'],
+      ...data.topStaff.map(s => [s.name, String(s.shiftsCompleted), s.rating.toFixed(1)]),
+      [],
+      ['Expiring Documents'],
+      ['Doctor', 'Document', 'Expires', 'Status'],
+      ...data.expiringDocuments.map(d => [d.staffName, d.documentType, dateLabel(d.expiresOn), d.status]),
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reports-${data.periodLabel.replace(' ', '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Layout>
       {/* Header */}
@@ -35,6 +61,15 @@ export default function Reports() {
         <div>
           <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-[2px]">Reports &amp; Analytics</h1>
           <p className="text-[11.5px] text-slate mb-4">{data?.periodLabel ?? '…'}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={exportCsv}
+            disabled={!data}
+            className="border border-line bg-white text-slate text-[11.5px] font-semibold px-3 py-[7px] rounded-[8px] hover:border-navy-2 disabled:opacity-50"
+          >
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -56,24 +91,26 @@ export default function Reports() {
             {loading
               ? Array(7).fill(null).map((_, i) => <div key={i} className="bg-sky-2 rounded-t-[5px] flex-1" style={{ height: '50%' }} />)
               : bars.map((b, i) => (
-                  <div
-                    key={i}
-                    className="bg-sky-2 rounded-t-[5px] flex-1"
-                    style={{ height: `${Math.max(6, (b.value / maxBar) * 100)}%` }}
-                    title={`${b.label}: ${b.value}`}
-                  />
+                  <div key={i} className="flex-1 flex flex-col items-center gap-[4px]" style={{ height: '100%', justifyContent: 'flex-end' }}>
+                    <div
+                      className="bg-navy-2 rounded-t-[5px] w-full"
+                      style={{ height: `${Math.max(6, (b.value / maxBar) * 100)}%` }}
+                      title={`${b.label}: ${b.value} shifts`}
+                    />
+                    <span className="text-[9.5px] text-slate">{b.label}</span>
+                  </div>
                 ))
             }
           </div>
         </Panel>
 
-        {/* Right — Top Staff */}
-        <Panel title="Top Staff by Shifts Completed">
+        {/* Right — Top Doctors */}
+        <Panel title="Top Doctors by Shifts Completed">
           <div className="overflow-hidden rounded-[10px] border border-line">
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Doctor</th>
                   <th>Shifts</th>
                   <th>Avg. Rating</th>
                 </tr>
@@ -102,7 +139,7 @@ export default function Reports() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Staff</th>
+                <th>Doctor</th>
                 <th>Document</th>
                 <th>Expires</th>
                 <th>Status</th>

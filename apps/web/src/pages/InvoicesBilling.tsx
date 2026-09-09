@@ -62,8 +62,6 @@ export default function InvoicesBilling() {
     result?.counts[t] != null ? `${TAB_LABELS[t]} (${result.counts[t]})` : TAB_LABELS[t]
   );
 
-  const paymentMethod = result?.paymentMethod;
-
   return (
     <Layout>
       <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-4">Invoices &amp; Billing</h1>
@@ -77,12 +75,6 @@ export default function InvoicesBilling() {
             ))
         }
       </div>
-
-      {paymentMethod && (
-        <p className="text-[11.5px] text-slate mb-3">
-          Payment method: {paymentMethod.label} ····{paymentMethod.last4}
-        </p>
-      )}
 
       <TabNav
         tabs={tabLabels}

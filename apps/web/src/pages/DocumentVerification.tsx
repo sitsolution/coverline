@@ -32,11 +32,24 @@ export default function DocumentVerification() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<DocumentReviewRow | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [showReject, setShowReject] = useState(false);
+
+  const selectDoc = useCallback(async (doc: DocumentReviewRow) => {
+    setSelected(doc);
+    setShowReject(false);
+    setPreviewUrl(null);
+    setLightbox(false);
+    try {
+      const url = await adminDocumentsService.fetchFileBlob(doc.id);
+      setPreviewUrl(url);
+    } catch {}
+  }, []);
 
   const load = useCallback(async (tab: string) => {
     setLoading(true);
@@ -46,6 +59,7 @@ export default function DocumentVerification() {
       setCounts(res.counts);
       setTotal(res.total);
       setSelected(null);
+      setPreviewUrl(null);
     } catch {} finally {
       setLoading(false);
     }
@@ -128,7 +142,7 @@ export default function DocumentVerification() {
                 <tr
                   key={doc.id}
                   className={`cursor-pointer ${selected?.id === doc.id ? 'bg-sky' : ''}`}
-                  onClick={() => { setSelected(doc); setShowReject(false); }}
+                  onClick={() => selectDoc(doc)}
                 >
                   <td className="font-semibold">{doc.staffName}</td>
                   <td>{doc.docTypeLabel}</td>
@@ -138,7 +152,7 @@ export default function DocumentVerification() {
                   <td className="text-[12px]">
                     <span
                       className="text-navy-2 font-semibold cursor-pointer hover:underline"
-                      onClick={(e) => { e.stopPropagation(); setSelected(doc); setShowReject(false); }}
+                      onClick={(e) => { e.stopPropagation(); selectDoc(doc); }}
                     >Review</span>
                   </td>
                 </tr>
@@ -154,16 +168,25 @@ export default function DocumentVerification() {
           ) : (
             <>
               {/* Inline preview for images/PDFs */}
-              <div className="h-[200px] bg-sky rounded-[10px] flex items-center justify-center text-[28px] text-navy-2 mb-3 overflow-hidden">
-                {selected.contentType.startsWith('image/') ? (
-                  <img
-                    src={adminDocumentsService.getFileUrl(selected.id)}
-                    alt={selected.originalFilename}
-                    className="max-h-full max-w-full object-contain"
-                  />
+              <div className="h-[200px] bg-sky rounded-[10px] flex items-center justify-center mb-3 overflow-hidden relative group">
+                {!previewUrl ? (
+                  <span className="text-[12px] text-slate">Loading preview…</span>
+                ) : selected.contentType.startsWith('image/') ? (
+                  <>
+                    <img
+                      src={previewUrl}
+                      alt={selected.originalFilename}
+                      className="max-h-full max-w-full object-contain cursor-zoom-in"
+                      onClick={() => setLightbox(true)}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none rounded-[10px]" />
+                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-[3px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Click to enlarge
+                    </span>
+                  </>
                 ) : (
                   <a
-                    href={adminDocumentsService.getFileUrl(selected.id)}
+                    href={previewUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[11.5px] font-bold text-navy-2 underline"
@@ -235,6 +258,28 @@ export default function DocumentVerification() {
           )}
         </Panel>
       </div>
+
+      {/* Lightbox */}
+      {lightbox && previewUrl && selected?.contentType.startsWith('image/') && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setLightbox(false)}
+        >
+          <button
+            className="absolute top-4 right-5 text-white text-[28px] font-bold leading-none hover:text-slate-300"
+            onClick={() => setLightbox(false)}
+          >
+            ×
+          </button>
+          <img
+            src={previewUrl}
+            alt={selected.originalFilename}
+            className="max-h-full max-w-full object-contain rounded-[8px] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="absolute bottom-4 text-white/70 text-[11px]">{selected.originalFilename} · {selected.docTypeLabel}</p>
+        </div>
+      )}
     </Layout>
   );
 }

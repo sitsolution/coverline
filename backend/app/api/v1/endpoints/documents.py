@@ -35,6 +35,7 @@ def _to_out(doc: Document) -> DocumentOut:
     return DocumentOut(
         id=doc.id,
         doc_type=doc.doc_type,
+        doc_type_label=DOCUMENT_TYPE_LABELS.get(doc.doc_type, doc.doc_type.value),
         label=doc.label,
         display_name=doc.display_name,
         document_number=doc.document_number,

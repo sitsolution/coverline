@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import Toast from '../../components/ui/Toast';
 import {
   View,
   Text,
@@ -128,6 +129,7 @@ export default function CalendarScreen({ navigation }: Props) {
   const [marks, setMarks] = useState<Record<number, DotColor>>({});
   const [upcoming, setUpcoming] = useState<ShiftItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '' });
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -141,7 +143,7 @@ export default function CalendarScreen({ navigation }: Props) {
       setMarks(markMap);
       setUpcoming(res.upcoming);
     } catch {
-      // Silently fail, show empty calendar
+      setToast({ visible: true, message: 'Failed to load calendar. Pull down to retry.' });
     } finally {
       setLoading(false);
     }
@@ -228,6 +230,12 @@ export default function CalendarScreen({ navigation }: Props) {
           upcoming.map((item) => <ShiftListRow key={item.id} item={item} />)
         )}
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type="error"
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
     </Screen>
   );
 }

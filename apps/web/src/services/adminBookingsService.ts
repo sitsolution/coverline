@@ -6,9 +6,11 @@ export interface BookingRow {
   shiftId: number;
   shiftLabel: string;
   shiftStart: string;
+  shiftEnd: string;
   staffId: number;
   staffName: string;
   staffInitials: string;
+  staffEmail: string;
   bookedOn: string;
   status: string;
   displayStatus: string;
@@ -78,8 +80,17 @@ const adminBookingsService = {
     return data;
   },
 
-  exportCsv: (tab = 'all') => {
-    window.open(`/api/v1/admin/bookings/export?tab=${tab}`, '_blank');
+  exportCsv: async (tab = 'all') => {
+    const { data } = await api.get('/admin/bookings/export', {
+      params: { tab },
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 };
 

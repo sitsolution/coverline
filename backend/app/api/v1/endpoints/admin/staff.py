@@ -308,6 +308,8 @@ def get_staff(
         stats=StaffStats(
             shifts_completed=profile.shifts_completed if profile else 0,
             shifts_at_this_facility=at_this_facility,
+            completion_rate=round((profile.shifts_completed / (profile.shifts_completed + cancellations)) * 100)
+                if profile and (profile.shifts_completed + cancellations) > 0 else 100,
             rating=float(profile.rating) if profile and profile.rating else 0.0,
             reviews_count=profile.reviews_count if profile else 0,
             cancellation_count=cancellations,
@@ -337,6 +339,14 @@ def shift_history(
     query = admin.scope(query, Shift.facility_id)
 
     applications = query.order_by(Shift.start_time.desc()).limit(limit).all()
+    shift_ids = [a.shift.id for a in applications]
+    reviews_map = {
+        r.shift_id: float(r.rating)
+        for r in admin.db.query(StaffReview)
+        .filter(StaffReview.staff_id == staff_id, StaffReview.shift_id.in_(shift_ids))
+        .all()
+    } if shift_ids else {}
+
     return [
         StaffShiftHistoryRow(
             shift_id=a.shift.id,
@@ -347,6 +357,7 @@ def shift_history(
             end_time=a.shift.end_time,
             status=a.status.value,
             pay_rate=float(a.shift.pay_rate),
+            rating_given=reviews_map.get(a.shift.id),
         )
         for a in applications
     ]

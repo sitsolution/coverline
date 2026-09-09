@@ -5,9 +5,14 @@ import TabNav from '../components/ui/TabNav';
 import { api } from '../services/api';
 
 const TABS = ['All', 'Unread', 'Shift Alerts', 'Applications', 'System'];
-const TAB_API: Record<string, string> = {
-  'All': 'all', 'Unread': 'unread', 'Shift Alerts': 'shift_alerts',
-  'Applications': 'application', 'System': 'system',
+
+// Tabs that map to the backend `tab` param vs `categories` param
+const TAB_PARAM: Record<string, { tab?: string; categories?: string }> = {
+  'All':          { tab: 'all' },
+  'Unread':       { tab: 'unread' },
+  'Shift Alerts': { tab: 'shift_alerts' },
+  'Applications': { categories: 'application' },
+  'System':       { categories: 'system' },
 };
 
 interface NotificationOut {
@@ -46,7 +51,7 @@ export default function NotificationsCenter() {
   const load = useCallback(async (tab: string) => {
     setLoading(true);
     try {
-      const { data } = await api.get('/notifications', { params: { filter: TAB_API[tab] } });
+      const { data } = await api.get('/notifications', { params: TAB_PARAM[tab] ?? { tab: 'all' } });
       setNotifs(data.items ?? []);
     } catch {} finally {
       setLoading(false);

@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_staff
 from app.models.application import Application
 from app.models.enums import ApplicationStatus, NotificationCategory
+from app.models.facility import FacilityMember
 from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.application import (
@@ -151,6 +152,24 @@ def cancel_application(
         entity_id=application.id,
         commit=False,
     )
+    if was_confirmed:
+        admin_ids = [
+            m.user_id
+            for m in db.query(FacilityMember)
+            .filter(FacilityMember.facility_id == application.shift.facility_id)
+            .all()
+        ]
+        for admin_id in admin_ids:
+            notify(
+                db,
+                user_id=admin_id,
+                category=NotificationCategory.application,
+                title="Booking cancelled by staff",
+                body=f"{current_user.full_name} cancelled · {application.shift.specialty}",
+                entity_type="application",
+                entity_id=application.id,
+                commit=False,
+            )
     db.commit()
     db.refresh(application)
     return _to_out(application)

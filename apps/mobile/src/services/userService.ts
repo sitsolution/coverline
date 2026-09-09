@@ -134,6 +134,10 @@ const userService = {
     return data;
   },
 
+  deleteAccount: async (): Promise<void> => {
+    await api.delete('/users/me');
+  },
+
   registerDeviceToken: async (token: string, platform: string): Promise<void> => {
     await api.post('/users/me/device-token', { token, platform });
   },
