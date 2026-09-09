@@ -1,20 +1,51 @@
 {
   "expo": {
-    "name": "Locum Ops",
-    "slug": "locum-ops",
+    "name": "Coverline",
+    "slug": "coverline",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F3D5C"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.locumops.mobile"
+      "bundleIdentifier": "com.coverline.mobile"
     },
     "android": {
-      "package": "com.locumops.mobile"
+      "package": "com.coverline.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
     },
-    "scheme": "locum-ops",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0F3D5C",
+      "translucent": false
+    },
+    "scheme": "coverline",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Coverline needs access to your photos to upload documents.",
+          "cameraPermission": "Coverline needs camera access to photograph your documents."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
     ]
   }
 }

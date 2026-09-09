@@ -1,77 +1,58 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
+import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
+import applicationService, { ApplicationOut, ApplicationCounts } from '../../services/applicationService';
 
-type Props = {
-  navigation: NativeStackNavigationProp<ShiftsStackParamList, 'MyApplications'>;
-};
-
-// ─── Types & Data ─────────────────────────────────────────────────────────────
+type Props = { navigation: NativeStackNavigationProp<ShiftsStackParamList, 'MyApplications'> };
 
 type TabKey = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
-
 const TABS: TabKey[] = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
 
-type Application = {
-  id: string;
-  initials: string;
-  hname: string;
-  hloc: string;
-  date: string;
-  time: string;
-  spec: string;
-  dur: string;
-  pay: string;
+const TAB_API: Record<TabKey, 'pending' | 'confirmed' | 'completed' | 'cancelled'> = {
+  Pending: 'pending', Confirmed: 'confirmed', Completed: 'completed', Cancelled: 'cancelled',
 };
 
-const DATA: Record<TabKey, Application[]> = {
-  Pending: [
-    { id: '1', initials: 'SJ', hname: 'St. Joseph Hospital', hloc: 'Kalyani Nagar', date: 'Sep 18', time: '9 AM–5 PM', spec: 'General Med.', dur: '8 hrs', pay: '₹7,000' },
-    { id: '2', initials: 'CV', hname: 'CityCare Clinic',     hloc: 'Viman Nagar',   date: 'Sep 20', time: '9 AM–6 PM', spec: 'Pediatrics',   dur: '9 hrs', pay: '₹6,200' },
-  ],
-  Confirmed: [
-    { id: '3', initials: 'AH', hname: 'Apollo Hospital',      hloc: 'Kothrud, Pune', date: 'Sep 14', time: '8 PM–8 AM', spec: 'Emergency Med.', dur: '12 hrs', pay: '₹9,500' },
-  ],
-  Completed: [
-    { id: '4', initials: 'RM', hname: 'Ruby Medical Centre',  hloc: 'Wakad, Pune',   date: 'Sep 8',  time: '8 AM–4 PM', spec: 'Anaesthesia',    dur: '8 hrs',  pay: '₹8,800' },
-  ],
-  Cancelled: [],
-};
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+function formatTime(start: string, end: string): string {
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function AppCard({
-  item,
-  tab,
-}: {
-  item: Application;
-  tab: TabKey;
-}) {
+function AppCard({ item, tab, onCancel }: { item: ApplicationOut; tab: TabKey; onCancel: (id: number) => void }) {
   const badgeStyle =
     tab === 'Confirmed' ? { bg: '#E3F5EC', color: '#1F8A5F' } :
     tab === 'Completed' ? { bg: '#EAF2F8', color: '#175E86' } :
     tab === 'Cancelled' ? { bg: '#FBE7E4', color: '#C0392B' } :
-    { bg: '#FBECDC', color: '#C97A2B' }; // Pending = Applied
+    { bg: '#FBECDC', color: '#C97A2B' };
+
+  const shift = item.shift;
+  if (!shift) return null;
 
   return (
     <View style={styles.card}>
-      {/* Row 1: hospital + badge */}
       <View style={styles.cardRow1}>
         <View style={styles.hosp}>
           <View style={styles.logoChip}>
-            <Text style={styles.logoChipText}>{item.initials}</Text>
+            <Text style={styles.logoChipText}>{shift.facility?.initials || (shift.facility?.name ?? '??').slice(0, 2).toUpperCase()}</Text>
           </View>
           <View>
-            <Text style={styles.hname}>{item.hname}</Text>
-            <Text style={styles.hloc}>{item.hloc}</Text>
+            <Text style={styles.hname}>{shift.facility?.name}</Text>
+            <Text style={styles.hloc}>{shift.facility?.location}</Text>
           </View>
         </View>
         <View style={[styles.badge, { backgroundColor: badgeStyle.bg }]}>
@@ -81,31 +62,81 @@ function AppCard({
         </View>
       </View>
 
-      {/* Meta pills */}
       <View style={styles.meta}>
-        <Text style={styles.metaPill}>📅 {item.date}</Text>
-        <Text style={styles.metaPill}>⏰ {item.time}</Text>
-        <Text style={styles.metaPill}>💊 {item.spec}</Text>
-        <Text style={styles.metaPill}>⏱ {item.dur}</Text>
+        <Text style={styles.metaPill}>📅 {formatDate(shift.startTime)}</Text>
+        <Text style={styles.metaPill}>⏰ {formatTime(shift.startTime, shift.endTime)}</Text>
+        <Text style={styles.metaPill}>💊 {shift.specialty}</Text>
+        <Text style={styles.metaPill}>⏱ {shift.durationHours} hrs</Text>
       </View>
 
-      {/* Footer */}
       <View style={styles.cardFoot}>
-        <Text style={styles.pay}>{item.pay}</Text>
+        <Text style={styles.pay}>₹{shift.payRate.toLocaleString('en-IN')}</Text>
       </View>
+
+      {tab === 'Pending' && item.canCancel && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.dangerBtn} activeOpacity={0.8} onPress={() => onCancel(item.id)}>
+            <Text style={styles.dangerBtnText}>Cancel Application</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
-
 export default function MyApplicationsScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('Pending');
-  const items = DATA[activeTab];
+  const [items, setItems] = useState<ApplicationOut[]>([]);
+  const [counts, setCounts] = useState<ApplicationCounts>({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+
+  const load = useCallback(async (tab: TabKey) => {
+    setLoading(true);
+    try {
+      const res = await applicationService.listApplications(TAB_API[tab]);
+      setItems(res.items);
+      setCounts(res.counts);
+    } catch {
+      setToast({ visible: true, message: 'Failed to load applications.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(activeTab); }, [load, activeTab]);
+  const loadCurrent = useCallback(() => load(activeTab), [load, activeTab]);
+  const { refreshing, onRefresh } = useRefresh(loadCurrent);
+
+  const handleCancel = async (id: number) => {
+    Alert.alert('Cancel Application', 'Are you sure you want to cancel this application?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, Cancel',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await applicationService.cancelApplication(id);
+            load(activeTab);
+          } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not cancel application.';
+            setToast({ visible: true, message: msg, type: 'error' });
+          }
+        },
+      },
+    ]);
+  };
+
+  const tabCount = (tab: TabKey): number => {
+    const map: Record<TabKey, number> = {
+      Pending: counts.pending, Confirmed: counts.confirmed,
+      Completed: counts.completed, Cancelled: counts.cancelled,
+    };
+    return map[tab];
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* App Bar */}
+    <Screen style={styles.container}>
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
           <Text style={styles.backArrow}>‹</Text>
@@ -114,11 +145,11 @@ export default function MyApplicationsScreen({ navigation }: Props) {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* Segmented tabs */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         <View style={styles.segmented}>
-          {TABS.map(tab => {
+          {TABS.map((tab) => {
             const active = activeTab === tab;
+            const count = tabCount(tab);
             return (
               <TouchableOpacity
                 key={tab}
@@ -126,170 +157,69 @@ export default function MyApplicationsScreen({ navigation }: Props) {
                 onPress={() => setActiveTab(tab)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.segText, active && styles.segTextActive]}>{tab}</Text>
+                <Text style={[styles.segText, active && styles.segTextActive]}>
+                  {tab}{count > 0 ? ` (${count})` : ''}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Cards */}
-        {items.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator color="#0F3D5C" style={{ marginTop: 40 }} />
+        ) : items.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyTitle}>No {activeTab} applications</Text>
             <Text style={styles.emptySub}>Your {activeTab.toLowerCase()} applications will appear here.</Text>
           </View>
         ) : (
-          items.map((item, index) => (
-            <View key={item.id}>
-              <AppCard item={item} tab={activeTab} />
-
-              {/* Action buttons — shown for each Pending card */}
-              {activeTab === 'Pending' && (
-                <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.outlineBtn} activeOpacity={0.8}>
-                    <Text style={styles.outlineBtnText}>View Details</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.dangerBtn} activeOpacity={0.8}>
-                    <Text style={styles.dangerBtnText}>Cancel Application</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+          items.map((item) => (
+            <AppCard key={item.id} item={item} tab={activeTab} onCancel={handleCancel} />
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+    </Screen>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F8FA' },
-
-  appbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingTop: 6,
-    paddingBottom: 14,
-  },
-  backBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  appbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 6, paddingBottom: 14 },
+  backBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', alignItems: 'center', justifyContent: 'center' },
   backArrow: { fontSize: 18, color: '#0F3D5C', lineHeight: 22 },
   appbarTitle: { fontSize: 16.5, fontWeight: '800', color: '#14202E' },
   spacer: { flex: 1 },
-
   body: { paddingHorizontal: 18, paddingBottom: 24 },
-
-  // Segmented tabs — text labels, same sky bg / white active pattern
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: '#EAF2F8',
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 14,
-  },
-  seg: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  segActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
-  segText: { fontSize: 11.5, fontWeight: '700', color: '#175E86' },
+  segmented: { flexDirection: 'row', backgroundColor: '#EAF2F8', borderRadius: 10, padding: 3, marginBottom: 14 },
+  seg: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8 },
+  segActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  segText: { fontSize: 10, fontWeight: '700', color: '#175E86' },
   segTextActive: { color: '#0B2D45' },
-
-  // Card
-  card: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 12,
-    padding: 13,
-    marginBottom: 10,
-  },
-  cardRow1: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
+  card: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', borderRadius: 12, padding: 13, marginBottom: 10 },
+  cardRow1: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   hosp: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  logoChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#EAF2F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
+  logoChip: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#EAF2F8', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   logoChipText: { fontSize: 12, fontWeight: '800', color: '#0F3D5C' },
   hname: { fontSize: 12.8, fontWeight: '700', color: '#14202E' },
-  hloc:  { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
-
+  hloc: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
   badge: { borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3, flexShrink: 0 },
   badgeText: { fontSize: 10.5, fontWeight: '700' },
-
-  // Meta
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  metaPill: {
-    fontSize: 10.8,
-    color: '#5C6B7A',
-    backgroundColor: '#F5F8FA',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-
-  // Footer
+  metaPill: { fontSize: 10.8, color: '#5C6B7A', backgroundColor: '#F5F8FA', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pay: { fontSize: 13.5, fontWeight: '800', color: '#0B2D45' },
-
-  // Action buttons row — margin:-6px 0 14px (pull up tight to card)
-  actionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: -6,
-    marginBottom: 14,
-  },
-  outlineBtn: {
-    borderWidth: 1.5,
-    borderColor: '#0F3D5C',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  outlineBtnText: { fontSize: 11.5, fontWeight: '700', color: '#0F3D5C' },
-  dangerBtn: {
-    backgroundColor: '#FBE7E4',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  dangerBtn: { flex: 1, borderWidth: 1.5, borderColor: '#C0392B', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
   dangerBtnText: { fontSize: 11.5, fontWeight: '700', color: '#C0392B' },
-
-  // Empty state
-  empty: { alignItems: 'center', paddingTop: 60, paddingBottom: 40 },
-  emptyIcon: { fontSize: 34, marginBottom: 14 },
-  emptyTitle: { fontSize: 13.5, fontWeight: '700', color: '#14202E', marginBottom: 6 },
-  emptySub: { fontSize: 11.5, color: '#5C6B7A', textAlign: 'center' },
+  empty: { alignItems: 'center', paddingTop: 48 },
+  emptyIcon: { fontSize: 36, marginBottom: 10 },
+  emptyTitle: { fontSize: 14, fontWeight: '800', color: '#14202E', marginBottom: 4 },
+  emptySub: { fontSize: 12, color: '#5C6B7A', textAlign: 'center' },
 });

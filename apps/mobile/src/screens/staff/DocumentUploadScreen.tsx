@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,39 +6,39 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Platform,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { DocsStackParamList } from '../../navigation/DocsStackNavigator';
 import PickerField from '../../components/ui/PickerField';
+import documentService, { DocumentTypeOption } from '../../services/documentService';
 
 type Props = {
   navigation: NativeStackNavigationProp<DocsStackParamList, 'DocumentUpload'>;
 };
 
-const DOC_TYPES = [
-  'Medical License',
-  'BLS Certification',
-  'ACLS Certification',
-  'ID Proof',
-  'Educational Certificate',
-];
-
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function toISODate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
 // ─── Date Field ───────────────────────────────────────────────────────────────
 
-function DateField({ label, value, onChange }: {
+function DateField({ label, value, onChange, minimumDate, maximumDate }: {
   label: string;
   value: Date;
   onChange: (date: Date) => void;
+  minimumDate?: Date;
+  maximumDate?: Date;
 }) {
   const [show, setShow] = useState(false);
 
@@ -61,6 +61,8 @@ function DateField({ label, value, onChange }: {
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={onPickerChange}
           onTouchCancel={() => setShow(false)}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
         />
       )}
       {show && Platform.OS === 'ios' && (
@@ -74,14 +76,35 @@ function DateField({ label, value, onChange }: {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
+type PickedFile = { uri: string; name: string; type: string };
+
 export default function DocumentUploadScreen({ navigation }: Props) {
-  const [selectedType, setSelectedType] = useState(DOC_TYPES[0]);
+  const [docTypes, setDocTypes] = useState<DocumentTypeOption[]>([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+  const [selectedType, setSelectedType] = useState('');
   const [docNumber, setDocNumber] = useState('');
-  const [issueDate, setIssueDate] = useState(new Date(2022, 2, 4));   // 04 Mar 2022
-  const [expiryDate, setExpiryDate] = useState(new Date(2027, 2, 4)); // 04 Mar 2027
+  const [issueDate, setIssueDate] = useState(new Date(2022, 2, 4));
+  const [expiryDate, setExpiryDate] = useState(new Date(2027, 2, 4));
   const [checked, setChecked] = useState(false);
-  const [pickedFileName, setPickedFileName] = useState<string | null>(null);
-  const [uploaded, setUploaded] = useState(false);
+  const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+
+  const loadTypes = useCallback(async () => {
+    try {
+      const types = await documentService.getDocumentTypes();
+      setDocTypes(types);
+      if (types.length > 0) setSelectedType(types[0].value);
+    } catch {
+      setToast({ visible: true, message: 'Could not load document types. Pull down to retry.', type: 'error' });
+    } finally {
+      setLoadingTypes(false);
+    }
+  }, []);
+
+  useEffect(() => { loadTypes(); }, [loadTypes]);
+
+  const currentType = docTypes.find(t => t.value === selectedType);
 
   const handleBrowseFile = async () => {
     try {
@@ -90,33 +113,84 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets.length > 0) {
-        setPickedFileName(result.assets[0].name);
+        const asset = result.assets[0];
+        setPickedFile({
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType ?? 'application/octet-stream',
+        });
       }
     } catch {
-      Alert.alert('Error', 'Could not open file picker.');
+      setToast({ visible: true, message: 'Could not open file picker.', type: 'error' });
     }
   };
 
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Camera access is needed to take a photo.');
+      setToast({ visible: true, message: 'Camera access is needed to take a photo.', type: 'info' });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
       allowsEditing: false,
     });
     if (!result.canceled && result.assets.length > 0) {
-      const uri = result.assets[0].uri;
-      const name = uri.split('/').pop() ?? 'photo.jpg';
-      setPickedFileName(name);
+      const asset = result.assets[0];
+      const name = asset.uri.split('/').pop() ?? 'photo.jpg';
+      setPickedFile({ uri: asset.uri, name, type: 'image/jpeg' });
     }
   };
 
+  const handleUpload = async () => {
+    if (!pickedFile) {
+      setToast({ visible: true, message: 'Please select or take a photo of your document.', type: 'info' });
+      return;
+    }
+    if (!checked) {
+      setToast({ visible: true, message: 'Please confirm the document is valid and belongs to you.', type: 'info' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await documentService.uploadDocument({
+        file: pickedFile,
+        docType: selectedType,
+        documentNumber: docNumber || undefined,
+        issueDate: toISODate(issueDate),
+        expiryDate: currentType?.requiresExpiry ? toISODate(expiryDate) : undefined,
+      });
+      setToast({ visible: true, message: 'Document submitted for verification.', type: 'success' });
+      navigation.goBack();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Upload failed.';
+      setToast({ visible: true, message: msg, type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (loadingTypes) {
+    return (
+      <Screen style={styles.container}>
+        <View style={styles.appbar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Text style={styles.backArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.appbarTitle}>Upload Document</Text>
+          <View style={styles.spacer} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -131,16 +205,19 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         {/* Document Type selector */}
         <PickerField
           label="Document Type"
-          options={DOC_TYPES}
-          value={selectedType}
-          onSelect={setSelectedType}
+          options={docTypes.map(t => t.label)}
+          value={currentType?.label ?? ''}
+          onSelect={(label) => {
+            const found = docTypes.find(t => t.label === label);
+            if (found) setSelectedType(found.value);
+          }}
         />
 
         {/* Upload area */}
         <TouchableOpacity style={styles.uploadArea} onPress={handleBrowseFile} activeOpacity={0.8}>
           <Text style={styles.uploadIcon}>📄</Text>
           <Text style={styles.uploadTitle}>
-            {pickedFileName ? pickedFileName : 'Tap to browse file'}
+            {pickedFile ? pickedFile.name : 'Tap to browse file'}
           </Text>
           <Text style={styles.uploadSub}>PDF, JPG, PNG up to 10MB</Text>
         </TouchableOpacity>
@@ -151,22 +228,26 @@ export default function DocumentUploadScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         {/* Document Number */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Document Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="MCI-2019-88213"
-            placeholderTextColor="#A9B8C4"
-            value={docNumber}
-            onChangeText={setDocNumber}
-          />
-        </View>
+        {(currentType?.requiresNumber ?? true) && (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Document Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="MCI-2019-88213"
+              placeholderTextColor="#A9B8C4"
+              value={docNumber}
+              onChangeText={setDocNumber}
+            />
+          </View>
+        )}
 
         {/* Issue Date */}
-        <DateField label="Issue Date" value={issueDate} onChange={setIssueDate} />
+        <DateField label="Issue Date" value={issueDate} onChange={setIssueDate} maximumDate={new Date()} />
 
         {/* Expiry Date */}
-        <DateField label="Expiry Date" value={expiryDate} onChange={setExpiryDate} />
+        {(currentType?.requiresExpiry ?? true) && (
+          <DateField label="Expiry Date" value={expiryDate} onChange={setExpiryDate} minimumDate={new Date()} />
+        )}
 
         {/* Confirmation checkbox */}
         <TouchableOpacity
@@ -184,15 +265,21 @@ export default function DocumentUploadScreen({ navigation }: Props) {
 
         {/* Upload button */}
         <TouchableOpacity
-          style={[styles.primaryBtn, uploaded && styles.primaryBtnDone]}
-          onPress={() => setUploaded(true)}
+          style={[styles.primaryBtn, uploading && styles.primaryBtnDisabled]}
+          onPress={handleUpload}
           activeOpacity={0.85}
-          disabled={uploaded}
+          disabled={uploading}
         >
-          <Text style={styles.primaryBtnText}>{uploaded ? 'Uploaded ✓' : 'Upload'}</Text>
+          <Text style={styles.primaryBtnText}>{uploading ? 'Uploading…' : 'Upload'}</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+    </Screen>
   );
 }
 
@@ -320,6 +407,6 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: 'center',
   },
-  primaryBtnDone: { backgroundColor: '#1F8A5F' },
+  primaryBtnDisabled: { opacity: 0.6 },
   primaryBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

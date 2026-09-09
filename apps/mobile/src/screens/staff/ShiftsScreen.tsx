@@ -1,438 +1,360 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  SafeAreaView,
+  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity,
+  TextInput, ActivityIndicator,
 } from 'react-native';
+import { useRefresh } from '../../hooks/useRefresh';
+import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
+import EmptyState from '../../components/ui/EmptyState';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
+import { useFocusEffect } from '@react-navigation/native';
+import shiftService from '../../services/shiftService';
+import { ShiftItem } from '../../services/userService';
 
 type Props = { navigation: NativeStackNavigationProp<ShiftsStackParamList, 'ShiftsList'> };
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type ShiftState = 'apply' | 'applied' | 'confirmed';
-
-type Shift = {
-  id: string;
-  initials: string;
-  hname: string;
-  hloc: string;
-  date: string;
-  time: string;
-  spec: string;
-  dur: string;
-  pay: string;
-  tags: string[];
-  state: ShiftState;
-};
-
-type Role = {
-  icon: string;
-  label: string;
-  searchPlaceholder: string;
-  filters: string[];
-  shifts: Shift[];
-};
-
-// ─── Data ────────────────────────────────────────────────────────────────────
-
-const ROLES: Record<string, Role> = {
-  doctor: {
-    icon: '🩺',
-    label: 'Doctor',
-    searchPlaceholder: '🔍 Search by location, specialty, date',
-    filters: ['Location', 'Specialty', 'Date Range', 'Shift Type', 'Pay Rate'],
-    shifts: [
-      { id: '1', initials: 'AH', hname: 'Apollo Hospital', hloc: 'Kothrud, Pune', date: 'Today', time: '8 PM–8 AM', spec: 'Emergency Med.', dur: '12 hrs', pay: '₹9,500', tags: ['Urgent', 'Night'], state: 'apply' },
-      { id: '2', initials: 'SJ', hname: 'St. Joseph Hospital', hloc: 'Kalyani Nagar', date: 'Tomorrow', time: '9 AM–5 PM', spec: 'General Med.', dur: '8 hrs', pay: '₹7,000', tags: ['Urgent'], state: 'applied' },
-      { id: '3', initials: 'CV', hname: 'CityCare Clinic', hloc: 'Viman Nagar', date: '12 Sep', time: '9 AM–6 PM', spec: 'Pediatrics', dur: '9 hrs', pay: '₹6,200', tags: ['Weekend'], state: 'apply' },
-      { id: '4', initials: 'RM', hname: 'Ruby Medical Centre', hloc: 'Wakad, Pune', date: '14 Sep', time: '8 AM–4 PM', spec: 'Anaesthesia', dur: '8 hrs', pay: '₹8,800', tags: [], state: 'confirmed' },
-    ],
-  },
-  nurse: {
-    icon: '💉',
-    label: 'Nurse',
-    searchPlaceholder: '🔍 Search by location, role, date',
-    filters: ['Location', 'Department', 'Date Range', 'Shift Type', 'Pay Rate'],
-    shifts: [
-      { id: '1', initials: 'AH', hname: 'Apollo Hospital', hloc: 'Kothrud, Pune', date: 'Today', time: '8 PM–8 AM', spec: 'ICU Nursing', dur: '12 hrs', pay: '₹4,200', tags: ['Urgent', 'Night'], state: 'apply' },
-      { id: '2', initials: 'SJ', hname: 'St. Joseph Hospital', hloc: 'Kalyani Nagar', date: 'Tomorrow', time: '9 AM–5 PM', spec: 'General Ward', dur: '8 hrs', pay: '₹3,400', tags: ['Urgent'], state: 'applied' },
-      { id: '3', initials: 'CV', hname: 'CityCare Clinic', hloc: 'Viman Nagar', date: '12 Sep', time: '9 AM–6 PM', spec: 'OT Nursing', dur: '9 hrs', pay: '₹3,900', tags: ['Weekend'], state: 'apply' },
-      { id: '4', initials: 'RM', hname: 'Ruby Medical Centre', hloc: 'Wakad, Pune', date: '14 Sep', time: '8 AM–4 PM', spec: 'Pediatric Nursing', dur: '8 hrs', pay: '₹3,700', tags: [], state: 'confirmed' },
-    ],
-  },
-  ot: {
-    icon: '🛠️',
-    label: 'OT Tech',
-    searchPlaceholder: '🔍 Search by location, role, date',
-    filters: ['Location', 'Department', 'Date Range', 'Shift Type', 'Pay Rate'],
-    shifts: [
-      { id: '1', initials: 'AH', hname: 'Apollo Hospital', hloc: 'Kothrud, Pune', date: 'Today', time: '8 PM–8 AM', spec: 'Cardiac OT', dur: '12 hrs', pay: '₹3,800', tags: ['Urgent', 'Night'], state: 'apply' },
-      { id: '2', initials: 'SJ', hname: 'St. Joseph Hospital', hloc: 'Kalyani Nagar', date: 'Tomorrow', time: '9 AM–5 PM', spec: 'General Surgery OT', dur: '8 hrs', pay: '₹3,100', tags: ['Urgent'], state: 'applied' },
-      { id: '3', initials: 'RM', hname: 'Ruby Medical Centre', hloc: 'Wakad, Pune', date: '14 Sep', time: '8 AM–4 PM', spec: 'Ortho OT', dur: '8 hrs', pay: '₹3,300', tags: [], state: 'confirmed' },
-    ],
-  },
-  hk: {
-    icon: '🧹',
-    label: 'Housekeeping',
-    searchPlaceholder: '🔍 Search by location, role, date',
-    filters: ['Location', 'Department', 'Date Range', 'Shift Type', 'Pay Rate'],
-    shifts: [
-      { id: '1', initials: 'AH', hname: 'Apollo Hospital', hloc: 'Kothrud, Pune', date: 'Today', time: '8 PM–8 AM', spec: 'OT Housekeeping', dur: '12 hrs', pay: '₹1,600', tags: ['Urgent', 'Night'], state: 'apply' },
-      { id: '2', initials: 'SJ', hname: 'St. Joseph Hospital', hloc: 'Kalyani Nagar', date: 'Tomorrow', time: '9 AM–5 PM', spec: 'General Ward', dur: '8 hrs', pay: '₹1,200', tags: ['Urgent'], state: 'applied' },
-      { id: '3', initials: 'CV', hname: 'CityCare Clinic', hloc: 'Viman Nagar', date: '12 Sep', time: '9 AM–6 PM', spec: 'Admin Block', dur: '9 hrs', pay: '₹1,350', tags: ['Weekend'], state: 'apply' },
-      { id: '4', initials: 'RM', hname: 'Ruby Medical Centre', hloc: 'Wakad, Pune', date: '14 Sep', time: '8 AM–4 PM', spec: 'OT Housekeeping', dur: '8 hrs', pay: '₹1,450', tags: [], state: 'confirmed' },
-    ],
-  },
-};
-
-const ROLE_KEYS = ['doctor', 'nurse', 'ot', 'hk'] as const;
-
-// ─── Shift Card ───────────────────────────────────────────────────────────────
-
-function StateButton({ state, onApply }: { state: ShiftState; onApply: () => void }) {
-  if (state === 'applied') {
-    return (
-      <View style={styles.badgeWarning}>
-        <Text style={styles.badgeWarningText}>Applied</Text>
-      </View>
-    );
-  }
-  if (state === 'confirmed') {
-    return (
-      <View style={styles.badgeSuccess}>
-        <Text style={styles.badgeSuccessText}>Confirmed</Text>
-      </View>
-    );
-  }
-  return (
-    <TouchableOpacity style={styles.applyBtn} onPress={onApply} activeOpacity={0.85}>
-      <Text style={styles.applyBtnText}>Apply</Text>
-    </TouchableOpacity>
-  );
+function formatDate(isoString: string): string {
+  const date = new Date(isoString);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-function ShiftCard({ item, onApply }: { item: Shift; onApply: (id: string) => void }) {
+function formatTime(start: string, end: string): string {
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${fmt(start)}–${fmt(end)}`;
+}
+
+function ShiftCard({ item, onPress, onApply }: { item: ShiftItem; onPress: () => void; onApply: (id: number) => void }) {
+  const applied = item.applicationStatus != null;
+  const confirmed = item.applicationStatus === 'confirmed';
+  const initials = item.facility?.initials || (item.facility?.name ?? '??').slice(0, 2).toUpperCase();
+
   return (
-    <View style={styles.shiftCard}>
-      {/* Row 1: logo chip + hospital info */}
-      <View style={styles.cardRow1}>
-        <View style={styles.logoChip}>
-          <Text style={styles.logoChipText}>{item.initials}</Text>
+    <TouchableOpacity style={styles.card} activeOpacity={0.96} onPress={onPress}>
+      {/* Hospital row */}
+      <View style={styles.hospRow}>
+        <View style={styles.initials}>
+          <Text style={styles.initialsText}>{initials}</Text>
         </View>
-        <View style={styles.hospInfo}>
-          <Text style={styles.hname}>{item.hname}</Text>
-          <Text style={styles.hloc}>📍 {item.hloc}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.hospName} numberOfLines={1}>{item.facility?.name}</Text>
+          <Text style={styles.hospLoc} numberOfLines={1}>📍 {item.facility?.location}</Text>
         </View>
       </View>
 
       {/* Meta pills */}
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}><Text style={styles.metaText}>🗓 {item.date}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>⏰ {item.time}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>🩺 {item.spec}</Text></View>
-        <View style={styles.metaPill}><Text style={styles.metaText}>{item.dur}</Text></View>
+      <View style={styles.pillRow}>
+        <View style={styles.pill}><Text style={styles.pillText}>🗓 {formatDate(item.startTime)}</Text></View>
+        <View style={styles.pill}><Text style={styles.pillText}>⏰ {formatTime(item.startTime, item.endTime)}</Text></View>
+        <View style={styles.pill}><Text style={styles.pillText}>🩺 {item.specialty}</Text></View>
+        <View style={styles.pill}><Text style={styles.pillText}>{item.durationHours} hrs</Text></View>
       </View>
 
       {/* Tags */}
-      {item.tags.length > 0 && (
+      {(item.isUrgent || item.isNight || item.isWeekend) && (
         <View style={styles.tagsRow}>
-          {item.tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
+          {item.isUrgent  && <View style={styles.tagUrgent}><Text style={styles.tagUrgentText}>Urgent</Text></View>}
+          {item.isNight   && <View style={styles.tagNight}><Text style={styles.tagNightText}>Night</Text></View>}
+          {item.isWeekend && <View style={styles.tagWeekend}><Text style={styles.tagWeekendText}>Weekend</Text></View>}
         </View>
       )}
 
-      {/* Footer: pay + action */}
+      {/* Footer */}
       <View style={styles.cardFoot}>
-        <Text style={styles.pay}>{item.pay}</Text>
-        <StateButton state={item.state} onApply={() => onApply(item.id)} />
+        <Text style={styles.pay}>₹{item.payRate.toLocaleString('en-IN')}</Text>
+        {confirmed ? (
+          <View style={styles.badgeConfirmed}><Text style={styles.badgeConfirmedText}>Confirmed ✓</Text></View>
+        ) : applied ? (
+          <View style={styles.badgeApplied}><Text style={styles.badgeAppliedText}>Applied</Text></View>
+        ) : (
+          <TouchableOpacity style={styles.applyBtn} onPress={() => onApply(item.id)} activeOpacity={0.85}>
+            <Text style={styles.applyBtnText}>Apply</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ShiftsScreen({ navigation }: Props) {
-  const [activeRole, setActiveRole] = useState<typeof ROLE_KEYS[number]>('doctor');
-  const [search, setSearch] = useState('');
-  const [shiftStates, setShiftStates] = useState<Record<string, ShiftState>>({});
+  const [shifts, setShifts]   = useState<ShiftItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch]   = useState('');
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [toast, setToast]     = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
-  const role = ROLES[activeRole];
+  const [locations, setLocations]     = useState<string[]>([]);
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [selectedLocation, setSelectedLocation]   = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
+  const [openDrop, setOpenDrop] = useState<'location' | 'specialty' | null>(null);
 
-  const handleApply = (id: string) => {
-    setShiftStates((prev) => ({ ...prev, [`${activeRole}-${id}`]: 'applied' }));
+  const hasFilters = !!(selectedLocation || selectedSpecialty);
+
+  const load = useCallback(async (s?: string, loc?: string, spec?: string) => {
+    setLoading(true);
+    try {
+      const res = await shiftService.listShifts({
+        search: s || undefined,
+        location: loc || undefined,
+        specialty: spec || undefined,
+      });
+      setShifts(res.items);
+    } catch {
+      setToast({ visible: true, message: 'Failed to load shifts.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCurrent = useCallback(() => load(search, selectedLocation, selectedSpecialty), [load, search, selectedLocation, selectedSpecialty]);
+  const { refreshing, onRefresh } = useRefresh(loadCurrent);
+
+  useEffect(() => {
+    shiftService.getFilters().then((f) => {
+      setLocations(f.locations);
+      setSpecialties(f.specialties);
+    }).catch(() => {});
+  }, []);
+
+  // Load (and reload when returning from ShiftDetails) with current filters
+  useFocusEffect(useCallback(() => { load(search, selectedLocation, selectedSpecialty); }, [load, search, selectedLocation, selectedSpecialty]));
+
+  const handleSearchChange = (text: string) => {
+    setSearch(text);
+    if (searchTimeout) clearTimeout(searchTimeout);
+    const t = setTimeout(() => load(text || undefined, selectedLocation, selectedSpecialty), 500);
+    setSearchTimeout(t);
   };
 
-  const getState = (shift: Shift): ShiftState =>
-    shiftStates[`${activeRole}-${shift.id}`] ?? shift.state;
+  const selectLocation = (val: string) => {
+    setSelectedLocation(val);
+    setOpenDrop(null);
+    load(search, val, selectedSpecialty);
+  };
+
+  const selectSpecialty = (val: string) => {
+    setSelectedSpecialty(val);
+    setOpenDrop(null);
+    load(search, selectedLocation, val);
+  };
+
+  const clearFilters = () => {
+    setSelectedLocation('');
+    setSelectedSpecialty('');
+    setOpenDrop(null);
+    load(search);
+  };
+
+  const toggleDrop = (key: 'location' | 'specialty') => {
+    setOpenDrop(prev => prev === key ? null : key);
+  };
+
+  const dropItems = openDrop === 'location' ? locations : specialties;
+  const dropSelected = openDrop === 'location' ? selectedLocation : selectedSpecialty;
+  const dropSelect = openDrop === 'location' ? selectLocation : selectSpecialty;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* App Bar */}
+    <Screen style={styles.screen}>
+      {/* Appbar */}
       <View style={styles.appbar}>
         <Text style={styles.appbarTitle}>Available Shifts</Text>
-        <View style={styles.spacer} />
-        <TouchableOpacity
-          onPress={() => navigation.navigate('MyApplications')}
-          activeOpacity={0.8}
-          style={styles.myAppsBtn}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('MyApplications')} style={styles.myAppsBtn} activeOpacity={0.8}>
           <Text style={styles.myAppsBtnText}>My Applications</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn} activeOpacity={0.8}>
-          <Text style={styles.iconBtnText}>⇅</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Role Switcher */}
-      <View style={styles.segmentedWrap}>
-        <View style={styles.segmented}>
-          {ROLE_KEYS.map((key) => {
-            const active = activeRole === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => setActiveRole(key)}
-                style={[styles.seg, active && styles.segActive]}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.segIcon}>{ROLES[key].icon}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* Search */}
+      {/* Search */}
+      <View style={styles.searchWrap}>
         <TextInput
           style={styles.searchInput}
-          placeholder={role.searchPlaceholder}
+          placeholder="🔍 Search by hospital, specialty, location…"
           placeholderTextColor="#A9B8C4"
           value={search}
-          onChangeText={setSearch}
+          onChangeText={handleSearchChange}
         />
+      </View>
 
-        {/* Filter chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersRow}
+      {/* Filter chips */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, (selectedLocation || openDrop === 'location') && styles.filterChipActive]}
+          onPress={() => toggleDrop('location')}
+          activeOpacity={0.8}
         >
-          {role.filters.map((f) => (
-            <TouchableOpacity key={f} style={styles.chipFilter} activeOpacity={0.8}>
-              <Text style={styles.chipFilterText}>{f} ▾</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          <Text style={[styles.filterChipText, (selectedLocation || openDrop === 'location') && styles.filterChipTextActive]}>
+            {selectedLocation || 'Location'} ▾
+          </Text>
+        </TouchableOpacity>
 
-        {/* Shift cards */}
-        {role.shifts.map((shift) => (
-          <TouchableOpacity
-            key={shift.id}
-            activeOpacity={0.97}
-            onPress={() => navigation.navigate('ShiftDetails', {
-              initials: shift.initials,
-              hname: shift.hname,
-              hloc: shift.hloc,
-              date: shift.date,
-              time: shift.time,
-              spec: shift.spec,
-              dur: shift.dur,
-              pay: shift.pay,
-              tags: shift.tags,
-              roleIcon: ROLES[activeRole].icon,
-              roleLabel: ROLES[activeRole].label,
-            })}
-          >
-          <ShiftCard
-            item={{ ...shift, state: getState(shift) }}
-            onApply={handleApply}
-          />
+        <TouchableOpacity
+          style={[styles.filterChip, (selectedSpecialty || openDrop === 'specialty') && styles.filterChipActive]}
+          onPress={() => toggleDrop('specialty')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.filterChipText, (selectedSpecialty || openDrop === 'specialty') && styles.filterChipTextActive]}>
+            {selectedSpecialty || 'Specialty'} ▾
+          </Text>
+        </TouchableOpacity>
+
+        {hasFilters && (
+          <TouchableOpacity style={styles.clearChip} onPress={clearFilters} activeOpacity={0.8}>
+            <Text style={styles.clearChipText}>✕ Clear</Text>
           </TouchableOpacity>
-        ))}
+        )}
+      </View>
+
+      {/* Tag dropdown panel */}
+      {openDrop && (
+        <View style={styles.tagPanel}>
+          <View style={styles.tagGrid}>
+            {['', ...dropItems].map((val) => (
+              <TouchableOpacity
+                key={val || '__all'}
+                style={[styles.tag, dropSelected === val && styles.tagActive]}
+                onPress={() => dropSelect(val)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tagText, dropSelected === val && styles.tagTextActive]}>
+                  {val || 'All'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Shift list */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
+        onScrollBeginDrag={() => setOpenDrop(null)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}
+      >
+        {loading ? (
+          <ActivityIndicator color="#0F3D5C" style={{ marginTop: 40 }} />
+        ) : shifts.length === 0 ? (
+          <EmptyState
+            icon="🩺"
+            title={search || hasFilters ? 'No shifts match your filters' : 'No shifts available'}
+            subtitle={search || hasFilters ? 'Try different filters or clear them.' : 'Check back soon — new shifts are posted regularly.'}
+          />
+        ) : (
+          shifts.map((shift) => (
+            <ShiftCard
+              key={shift.id}
+              item={shift}
+              onPress={() => navigation.navigate('ShiftDetails', { shiftId: shift.id })}
+              onApply={handleApply}
+            />
+          ))
+        )}
       </ScrollView>
-    </SafeAreaView>
+
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onDismiss={() => setToast(t => ({ ...t, visible: false }))} />
+    </Screen>
   );
+
+  async function handleApply(shiftId: number) {
+    try {
+      await shiftService.applyToShift(shiftId);
+      setToast({ visible: true, message: 'Application submitted!', type: 'success' });
+      load(search, selectedLocation, selectedSpecialty);
+    } catch (err: unknown) {
+      const msg = (err as any)?.response?.data?.detail ?? 'Could not apply. Please try again.';
+      setToast({ visible: true, message: msg, type: 'error' });
+    }
+  }
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F8FA' },
+  screen: { flex: 1, backgroundColor: '#EEF3F8' },
 
-  // App bar
   appbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingTop: 6,
-    paddingBottom: 14,
-    backgroundColor: '#F5F8FA',
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12,
   },
-  appbarTitle: { fontSize: 16.5, fontWeight: '800', color: '#14202E' },
-  spacer: { flex: 1 },
+  appbarTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: '#14202E' },
   myAppsBtn: {
-    backgroundColor: '#EAF2F8',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginRight: 6,
+    backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10,
+    paddingVertical: 5, borderWidth: 1, borderColor: '#DCE4EA',
   },
   myAppsBtnText: { fontSize: 11, fontWeight: '700', color: '#175E86' },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBtnText: { fontSize: 14, color: '#0F3D5C', fontWeight: '700' },
 
-  // Role segmented
-  segmentedWrap: {
-    paddingHorizontal: 18,
-    paddingBottom: 14,
-    backgroundColor: '#F5F8FA',
-  },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: '#EAF2F8',
-    borderRadius: 10,
-    padding: 3,
-  },
-  seg: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  segActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
-  segIcon: { fontSize: 17 },
-
-  // Scroll body
-  body: { paddingHorizontal: 18, paddingBottom: 20 },
-
-  // Search
+  searchWrap: { paddingHorizontal: 18, marginBottom: 10 },
   searchInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1.4,
-    borderColor: '#DCE4EA',
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 12.5,
-    color: '#14202E',
-    marginBottom: 10,
+    backgroundColor: '#fff', borderWidth: 1.4, borderColor: '#DCE4EA',
+    borderRadius: 10, paddingHorizontal: 13, paddingVertical: 11,
+    fontSize: 13, color: '#14202E',
   },
 
-  // Filter chips
-  filtersRow: { gap: 7, marginBottom: 14 },
-  chipFilter: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+  filterRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, gap: 8, marginBottom: 4 },
+  filterChip: {
+    backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    borderWidth: 1.4, borderColor: '#DCE4EA',
   },
-  chipFilterText: { fontSize: 11, fontWeight: '600', color: '#5C6B7A' },
+  filterChipActive: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
+  filterChipText: { fontSize: 12.5, fontWeight: '600', color: '#5C6B7A' },
+  filterChipTextActive: { color: '#fff' },
+  clearChip: { backgroundColor: '#FDECEA', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  clearChipText: { fontSize: 12.5, fontWeight: '700', color: '#C0392B' },
 
-  // Shift card
-  shiftCard: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#DCE4EA',
-    borderRadius: 12,
-    padding: 13,
-    marginBottom: 10,
+  // Tag panel — wrapping grid of tags
+  tagPanel: {
+    backgroundColor: '#fff', borderTopWidth: 1, borderBottomWidth: 1,
+    borderColor: '#E2EAF0', paddingHorizontal: 18, paddingVertical: 12, marginBottom: 4,
   },
-  cardRow1: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  logoChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#EAF2F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  logoChipText: { fontSize: 12, fontWeight: '800', color: '#0F3D5C' },
-  hospInfo: { flex: 1 },
-  hname: { fontSize: 12.8, fontWeight: '700', color: '#14202E' },
-  hloc: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
-
-  // Meta pills
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  metaPill: {
-    backgroundColor: '#F5F8FA',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  metaText: { fontSize: 10.8, color: '#5C6B7A' },
-
-  // Tags
-  tagsRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: {
-    backgroundColor: '#EAF2F8',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderWidth: 1.4, borderColor: '#DCE4EA', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F5F8FA',
   },
-  tagText: { fontSize: 10, fontWeight: '700', color: '#175E86' },
+  tagActive: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
+  tagText: { fontSize: 12.5, fontWeight: '600', color: '#5C6B7A' },
+  tagTextActive: { color: '#fff' },
 
-  // Card footer
-  cardFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pay: { fontSize: 13.5, fontWeight: '800', color: '#0B2D45' },
+  list: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 24 },
 
-  // State buttons / badges
-  applyBtn: {
-    backgroundColor: '#0F3D5C',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+  card: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: '#E2EAF0',
+    shadowColor: '#0F3D5C', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  applyBtnText: { fontSize: 11.5, fontWeight: '700', color: '#fff' },
+  hospRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  initials: {
+    width: 40, height: 40, borderRadius: 10, backgroundColor: '#EEF3F8',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  initialsText: { fontSize: 13, fontWeight: '800', color: '#0F3D5C' },
+  hospName: { fontSize: 14, fontWeight: '700', color: '#14202E', marginBottom: 2 },
+  hospLoc: { fontSize: 11.5, color: '#5C6B7A' },
 
-  badgeWarning: {
-    backgroundColor: '#FBECDC',
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  badgeWarningText: { fontSize: 10.5, fontWeight: '700', color: '#C97A2B' },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  pill: { backgroundColor: '#F0F5F9', borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4 },
+  pillText: { fontSize: 11.5, color: '#5C6B7A', fontWeight: '500' },
 
-  badgeSuccess: {
-    backgroundColor: '#E3F5EC',
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  badgeSuccessText: { fontSize: 10.5, fontWeight: '700', color: '#1F8A5F' },
+  tagsRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  tagUrgent: { backgroundColor: '#FEF0EE', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 4 },
+  tagUrgentText: { fontSize: 11.5, fontWeight: '700', color: '#C0392B' },
+  tagNight: { backgroundColor: '#EEF0FE', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 4 },
+  tagNightText: { fontSize: 11.5, fontWeight: '700', color: '#3B5BDB' },
+  tagWeekend: { backgroundColor: '#F0FEF4', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 4 },
+  tagWeekendText: { fontSize: 11.5, fontWeight: '700', color: '#1F8A5F' },
+
+  cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  pay: { fontSize: 16, fontWeight: '800', color: '#0B2D45' },
+  applyBtn: { backgroundColor: '#0F3D5C', borderRadius: 10, paddingHorizontal: 22, paddingVertical: 9 },
+  applyBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  badgeApplied: { backgroundColor: '#FBF0E0', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
+  badgeAppliedText: { fontSize: 12, fontWeight: '700', color: '#C97A2B' },
+  badgeConfirmed: { backgroundColor: '#E3F5EC', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
+  badgeConfirmedText: { fontSize: 12, fontWeight: '700', color: '#1F8A5F' },
 });

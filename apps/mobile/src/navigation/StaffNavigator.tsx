@@ -1,18 +1,19 @@
 import React from 'react';
 import { Text, View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import HomeStackNavigator from './HomeStackNavigator';
-import ShiftsStackNavigator from './ShiftsStackNavigator';
-import CalendarStackNavigator from './CalendarStackNavigator';
-import DocsStackNavigator from './DocsStackNavigator';
-import ProfileStackNavigator from './ProfileStackNavigator';
+import { NavigatorScreenParams } from '@react-navigation/native';
+import HomeStackNavigator, { HomeStackParamList } from './HomeStackNavigator';
+import ShiftsStackNavigator, { ShiftsStackParamList } from './ShiftsStackNavigator';
+import CalendarStackNavigator, { CalendarStackParamList } from './CalendarStackNavigator';
+import DocsStackNavigator, { DocsStackParamList } from './DocsStackNavigator';
+import ProfileStackNavigator, { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type StaffTabParamList = {
-  Home: undefined;
-  Shifts: undefined;
-  Calendar: undefined;
-  Docs: undefined;
-  Profile: undefined;
+  Home: NavigatorScreenParams<HomeStackParamList>;
+  Shifts: NavigatorScreenParams<ShiftsStackParamList>;
+  Calendar: NavigatorScreenParams<CalendarStackParamList>;
+  Docs: NavigatorScreenParams<DocsStackParamList>;
+  Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 const Tab = createBottomTabNavigator<StaffTabParamList>();
@@ -75,6 +76,6 @@ export default function StaffNavigator() {
 
 const styles = StyleSheet.create({
   tabItem: { alignItems: 'center', justifyContent: 'center' },
-  ic: { fontSize: 22 },
+  ic: { fontSize: 16 },
   label: { fontSize: 9.5, marginTop: 2 },
 });

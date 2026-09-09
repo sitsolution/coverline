@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text, StyleSheet, ViewStyle } from 'react-native';
-
 export type ToastType = 'success' | 'error' | 'info';
 
 type Props = {

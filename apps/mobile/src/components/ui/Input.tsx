@@ -22,13 +22,20 @@ export default function Input({ label, error, isPassword = false, ...props }: In
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.inputRow, error ? styles.inputError : null]}>
         <TextInput
+          autoCorrect={false}
+          spellCheck={false}
           {...props}
           secureTextEntry={isPassword && !visible}
           style={styles.input}
           placeholderTextColor="#A9B8C4"
         />
         {isPassword && (
-          <TouchableOpacity onPress={() => setVisible(!visible)} style={styles.eye}>
+          <TouchableOpacity
+            onPress={() => setVisible(v => !v)}
+            style={styles.eye}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.6}
+          >
             <Text style={styles.eyeText}>{visible ? 'Hide' : 'Show'}</Text>
           </TouchableOpacity>
         )}
@@ -65,7 +72,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#14202E',
   },
-  eye: { paddingLeft: 8 },
+  eye: { paddingLeft: 12, paddingVertical: 10 },
   eyeText: { fontSize: 11.5, color: '#175E86', fontWeight: '600' },
   errorText: { fontSize: 11, color: '#C0392B', marginTop: 4 },
 });

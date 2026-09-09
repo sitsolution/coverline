@@ -5,29 +5,61 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import authService from '../../services/authService';
+import { useAuth } from '../../store/auth';
+import Toast, { ToastType } from '../../components/ui/Toast';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
+  const { saveTokens } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
 
-  const handleLogin = () => {
+  const showToast = (message: string, type: ToastType = 'error') =>
+    setToast({ visible: true, message, type });
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      showToast('Please enter your email and password');
+      return;
+    }
     setLoading(true);
-    // TODO: call API
-    setTimeout(() => setLoading(false), 1000);
+    try {
+      const data = await authService.login(email, password);
+      if (!data.isVerified) {
+        navigation.navigate('OTPVerification', { email });
+      } else {
+        await saveTokens({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          userId: data.userId,
+          role: data.role,
+          isVerified: data.isVerified,
+        });
+      }
+    } catch (err: unknown) {
+      const detail = (err as any)?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join('\n')
+        : (typeof detail === 'string' ? detail : 'Login failed. Please try again.');
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+    <Screen style={styles.container}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Welcome back</Text>
         <Text style={styles.subtitle}>Login to manage your shifts</Text>
 
@@ -51,8 +83,9 @@ export default function LoginScreen({ navigation }: Props) {
         <TouchableOpacity
           onPress={() => navigation.navigate('ForgotPassword')}
           style={styles.forgotRow}
+          disabled={loading}
         >
-          <Text style={styles.forgotText}>Forgot Password?</Text>
+          <Text style={[styles.forgotText, loading && { opacity: 0.4 }]}>Forgot Password?</Text>
         </TouchableOpacity>
 
         <Button title="Login" onPress={handleLogin} loading={loading} style={styles.loginBtn} />
@@ -78,14 +111,21 @@ export default function LoginScreen({ navigation }: Props) {
         <TouchableOpacity
           onPress={() => navigation.navigate('SelectRole')}
           style={styles.signupLink}
+          disabled={loading}
         >
-          <Text style={styles.signupLinkText}>
+          <Text style={[styles.signupLinkText, loading && { opacity: 0.4 }]}>
             Don't have an account?{' '}
             <Text style={styles.link}>Sign Up</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+    </Screen>
   );
 }
 

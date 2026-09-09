@@ -15,6 +15,7 @@ interface PickerFieldProps {
   options: string[];
   placeholder?: string;
   onSelect: (val: string) => void;
+  error?: string;
 }
 
 export default function PickerField({
@@ -23,6 +24,7 @@ export default function PickerField({
   options,
   placeholder = 'Select an option',
   onSelect,
+  error,
 }: PickerFieldProps) {
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -36,7 +38,7 @@ export default function PickerField({
     return (
       <View style={styles.wrapper}>
         <Text style={styles.label}>{label}</Text>
-        <View style={styles.trigger}>
+        <View style={[styles.trigger, error ? styles.triggerError : null]}>
           <Picker
             selectedValue={value}
             onValueChange={(val) => onSelect(val as string)}
@@ -50,6 +52,7 @@ export default function PickerField({
             ))}
           </Picker>
         </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
     );
   }
@@ -59,7 +62,7 @@ export default function PickerField({
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
       <TouchableOpacity
-        style={styles.trigger}
+        style={[styles.trigger, error ? styles.triggerError : null]}
         onPress={() => { setTempValue(value); setOpen(true); }}
         activeOpacity={0.7}
       >
@@ -68,6 +71,7 @@ export default function PickerField({
         </Text>
         <Text style={styles.chevron}>▾</Text>
       </TouchableOpacity>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setOpen(false)} />
@@ -115,9 +119,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: Platform.OS === 'android' ? 52 : 46,
   },
+  triggerError: { borderColor: '#C0392B' },
   placeholder: { flex: 1, fontSize: 13, color: '#A9B8C4' },
   value: { flex: 1, fontSize: 13, color: '#14202E' },
   chevron: { fontSize: 14, color: '#5C6B7A' },
+  errorText: { fontSize: 11, color: '#C0392B', marginTop: 4 },
 
   // Android
   androidPicker: {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,22 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
+import supportService, { FaqOut } from '../../services/supportService';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'HelpSupport'>;
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const FAQS = [
-  { q: 'How do I get my documents verified?' },
-  { q: 'When will I receive my payment?' },
-  { q: 'Can I cancel a confirmed shift?' },
-  { q: 'How do I update my availability?' },
-  { q: 'What happens if a hospital cancels a shift?' },
-];
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function FAQRow({ question, isLast }: { question: string; isLast?: boolean }) {
+function FAQRow({ faq, isLast }: { faq: FaqOut; isLast?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -41,11 +34,9 @@ function FAQRow({ question, isLast }: { question: string; isLast?: boolean }) {
         <Text style={styles.faqAvatarText}>❓</Text>
       </View>
       <View style={styles.faqContent}>
-        <Text style={styles.faqQ}>{question}</Text>
+        <Text style={styles.faqQ}>{faq.question}</Text>
         {open ? (
-          <Text style={styles.faqA}>
-            Contact our support team for a detailed answer to this question.
-          </Text>
+          <Text style={styles.faqA}>{faq.answer}</Text>
         ) : null}
       </View>
       <Text style={styles.chevron}>{open ? '˄' : '˅'}</Text>
@@ -57,13 +48,44 @@ function FAQRow({ question, isLast }: { question: string; isLast?: boolean }) {
 
 export default function HelpSupportScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
+  const [faqs, setFaqs] = useState<FaqOut[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
-  const filtered = FAQS.filter(f =>
-    f.q.toLowerCase().includes(search.toLowerCase())
-  );
+  const load = useCallback(async (q?: string) => {
+    try {
+      const res = await supportService.listFaqs(q);
+      setFaqs(res.items);
+    } catch {
+      // Show empty list on failure
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => { load(search || undefined); }, 400);
+    return () => clearTimeout(timer);
+  }, [search, load]);
+
+  const handleLiveChat = async () => {
+    setSubmitting(true);
+    try {
+      await supportService.createTicket('Live Chat Request', 'User requested live chat support.');
+      setToast({ visible: true, message: 'Support ticket created. Our team will contact you shortly.', type: 'success' });
+    } catch {
+      setToast({ visible: true, message: 'Could not submit request. Please try emailing us.', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -88,16 +110,17 @@ export default function HelpSupportScreen({ navigation }: Props) {
 
         {/* FAQs */}
         <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-        <View>
-          {filtered.length > 0
-            ? filtered.map((f, i) => (
-                <FAQRow key={f.q} question={f.q} isLast={i === filtered.length - 1} />
-              ))
-            : (
-                <Text style={styles.noResults}>No FAQs match your search.</Text>
-              )
-          }
-        </View>
+        {loading ? (
+          <ActivityIndicator color="#0F3D5C" style={{ marginTop: 20 }} />
+        ) : faqs.length === 0 ? (
+          <Text style={styles.noResults}>No FAQs match your search.</Text>
+        ) : (
+          <View>
+            {faqs.map((f, i) => (
+              <FAQRow key={f.id} faq={f} isLast={i === faqs.length - 1} />
+            ))}
+          </View>
+        )}
 
         {/* Contact Us */}
         <Text style={styles.sectionTitle}>Contact Us</Text>
@@ -105,8 +128,8 @@ export default function HelpSupportScreen({ navigation }: Props) {
           <Text style={styles.contactNote}>
             Our support team typically replies within 2 hours.
           </Text>
-          <TouchableOpacity style={styles.btnPrimary} activeOpacity={0.85}>
-            <Text style={styles.btnPrimaryText}>💬  Live Chat</Text>
+          <TouchableOpacity style={styles.btnPrimary} activeOpacity={0.85} onPress={handleLiveChat} disabled={submitting}>
+            <Text style={styles.btnPrimaryText}>{submitting ? 'Submitting…' : '💬  Live Chat'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.btnOutline}
@@ -118,7 +141,13 @@ export default function HelpSupportScreen({ navigation }: Props) {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+    </Screen>
   );
 }
 
@@ -173,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // FAQ rows — transparent, border-bottom dividers
+  // FAQ rows
   faqRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

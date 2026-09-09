@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans text-ink antialiased;
+  }
+}
+
+@layer utilities {
+  .section-pad {
+    @apply py-20 px-6 md:px-10 lg:px-16;
+  }
+  .container-lg {
+    @apply max-w-6xl mx-auto;
+  }
+}

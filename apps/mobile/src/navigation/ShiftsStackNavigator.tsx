@@ -6,19 +6,7 @@ import MyApplicationsScreen from '../screens/staff/MyApplicationsScreen';
 
 export type ShiftsStackParamList = {
   ShiftsList: undefined;
-  ShiftDetails: {
-    initials: string;
-    hname: string;
-    hloc: string;
-    date: string;
-    time: string;
-    spec: string;
-    dur: string;
-    pay: string;
-    tags: string[];
-    roleIcon: string;
-    roleLabel: string;
-  };
+  ShiftDetails: { shiftId: number };
   MyApplications: undefined;
 };
 

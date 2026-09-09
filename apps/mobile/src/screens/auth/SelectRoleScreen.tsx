@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import BackButton from '../../components/ui/BackButton';
@@ -33,13 +33,13 @@ export default function SelectRoleScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.appbar}>
         <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.appbarTitle}>Create Your Account</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={styles.subtitle}>I'm looking for shifts as a…</Text>
 
         {STAFF_ROLES.map((role) => (
@@ -84,7 +84,7 @@ export default function SelectRoleScreen({ navigation }: Props) {
           <Text style={styles.continueBtnText}>Continue</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

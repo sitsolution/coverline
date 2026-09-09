@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import userService from '../../services/userService';
+import Screen from '../../components/ui/Screen';
+import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
@@ -20,8 +23,27 @@ type Props = {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const SPECIALTIES = ['Emergency Medicine', 'General Medicine', 'Pediatrics'];
-const EXPERIENCE  = ['1–2 years', '3–5 years', '6–10 years', '10+ years'];
+const EXPERIENCE = ['1–2 years', '3–5 years', '6–10 years', '10+ years'];
+
+// Matches the options shown on each role's signup screen
+const ROLE_SPECIALTY_CONFIG: Record<string, { label: string; options: string[] }> = {
+  doctor: {
+    label: 'Specialty',
+    options: ['General Medicine', 'Emergency Medicine', 'Anaesthesia', 'Pediatrics'],
+  },
+  nurse: {
+    label: 'Nursing Specialty',
+    options: ['ICU Nursing', 'General Ward', 'OT Nursing', 'Pediatric Nursing', 'Emergency Nursing'],
+  },
+  ot_tech: {
+    label: 'Certifying Body',
+    options: ['Diploma in OT Technology', 'B.Sc. OT Technology', 'Allied Health Council'],
+  },
+  housekeeping: {
+    label: 'Preferred Work Area',
+    options: ['General Ward', 'OT Housekeeping', 'Admin Block', 'ICU'],
+  },
+};
 
 function formatDate(d: Date) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -61,10 +83,11 @@ function InputField({
 
 function DateField({ label, value, onChange }: {
   label: string;
-  value: Date;
+  value: Date | null;
   onChange: (d: Date) => void;
 }) {
   const [show, setShow] = useState(false);
+  const pickerValue = value ?? new Date(1990, 0, 1);
 
   const onPickerChange = (_e: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') setShow(false);
@@ -75,14 +98,17 @@ function DateField({ label, value, onChange }: {
     <View style={styles.field}>
       <FieldLabel label={label} />
       <TouchableOpacity style={styles.dateInput} onPress={() => setShow(true)} activeOpacity={0.8}>
-        <Text style={styles.dateText}>{formatDate(value)}</Text>
+        <Text style={[styles.dateText, !value && { color: '#A9B8C4' }]}>
+          {value ? formatDate(value) : 'Select date of birth'}
+        </Text>
         <Text style={styles.dateIcon}>📅</Text>
       </TouchableOpacity>
       {show && (
         <DateTimePicker
-          value={value}
+          value={pickerValue}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={onPickerChange}
         />
       )}
@@ -99,15 +125,65 @@ function DateField({ label, value, onChange }: {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function EditProfileScreen({ navigation }: Props) {
-  const [name,       setName]       = useState('Dr. Ananya Rao');
-  const [email,      setEmail]      = useState('ananya.rao@email.com');
-  const [phone,      setPhone]      = useState('+91 98xxxxxx21');
-  const [dob,        setDob]        = useState(new Date(1992, 5, 14)); // 14 Jun 1992
-  const [specialty,  setSpecialty]  = useState(SPECIALTIES[0]);
+  const [name,       setName]       = useState('');
+  const [email,      setEmail]      = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [dob,        setDob]        = useState<Date | null>(null);
+  const [initials,   setInitials]   = useState('?');
+  const [role,       setRole]       = useState('doctor');
+  const [specialty,  setSpecialty]  = useState('');
   const [experience, setExperience] = useState(EXPERIENCE[2]);
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await userService.getMe();
+        setName(data.user.fullName);
+        setEmail(data.user.email ?? '');
+        setPhone(data.user.phone ?? '');
+        setInitials(data.user.fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase());
+        const userRole = data.user.role;
+        setRole(userRole);
+        const config = ROLE_SPECIALTY_CONFIG[userRole] ?? ROLE_SPECIALTY_CONFIG.doctor;
+        setSpecialty(data.profile?.specialty ?? config.options[0]);
+        if (data.dateOfBirth) setDob(new Date(data.dateOfBirth));
+        if (data.profile?.experience) setExperience(data.profile.experience);
+      } catch {} finally { setLoading(false); }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await userService.updateMe({
+        fullName: name,
+        phone,
+        dateOfBirth: dob ? dob.toISOString().split('T')[0] : undefined,
+        specialty,
+        experience,
+      });
+      navigation.goBack();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to save profile.';
+      setToast({ visible: true, message: msg, type: 'error' });
+    } finally { setSaving(false); }
+  };
+
+  if (loading) {
+    return (
+      <Screen style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#0F3D5C" />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* App Bar */}
       <View style={styles.appbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
@@ -121,7 +197,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         {/* Avatar + Change Photo */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarLg}>
-            <Text style={styles.avatarLgText}>AR</Text>
+            <Text style={styles.avatarLgText}>{initials}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.7}>
             <Text style={styles.changePhotoText}>Change Photo</Text>
@@ -129,32 +205,41 @@ export default function EditProfileScreen({ navigation }: Props) {
         </View>
 
         {/* Fields */}
-        <InputField label="Full Name"      value={name}  onChangeText={setName} />
-        <InputField label="Email Address"  value={email} onChangeText={setEmail} keyboardType="email-address" />
-        <InputField label="Phone Number"   value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-        <DateField  label="Date of Birth"  value={dob}   onChange={setDob} />
-        <PickerField label="Specialty"            options={SPECIALTIES} value={specialty}  onSelect={setSpecialty} />
-        <PickerField label="Years of Experience"  options={EXPERIENCE}  value={experience} onSelect={setExperience} />
+        <InputField label="Full Name"    value={name}  onChangeText={setName} />
+        {/* Email is read-only — shown for reference */}
+        <View style={styles.field}>
+          <FieldLabel label="Email Address" />
+          <View style={[styles.input, { justifyContent: 'center', backgroundColor: '#F5F8FA' }]}>
+            <Text style={{ fontSize: 13, color: '#8697A6' }}>{email}</Text>
+          </View>
+        </View>
+        <InputField label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <DateField  label="Date of Birth" value={dob}  onChange={setDob} />
+        <PickerField
+          label={(ROLE_SPECIALTY_CONFIG[role] ?? ROLE_SPECIALTY_CONFIG.doctor).label}
+          options={(ROLE_SPECIALTY_CONFIG[role] ?? ROLE_SPECIALTY_CONFIG.doctor).options}
+          value={specialty}
+          onSelect={setSpecialty}
+        />
+        <PickerField label="Years of Experience" options={EXPERIENCE} value={experience} onSelect={setExperience} />
 
         {/* Cancel / Save buttons */}
         <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={styles.outlineBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={styles.outlineBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
             <Text style={styles.outlineBtnText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>Save</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving}>
+            <Text style={styles.primaryBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+    </Screen>
   );
 }
 

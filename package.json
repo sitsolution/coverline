@@ -1,10 +1,11 @@
 {
-  "name": "locum-ops",
+  "name": "coverline",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
     "apps/mobile",
-    "apps/web"
+    "apps/web",
+    "apps/landing"
   ],
   "overrides": {
     "react-native-gesture-handler": "~2.20.2"
@@ -12,6 +13,16 @@
   "scripts": {
     "mobile": "npm run start --workspace=apps/mobile",
     "web": "npm run dev --workspace=apps/web",
-    "backend": "cd backend && python -m uvicorn app.main:app --reload"
+    "landing": "npm run dev --workspace=apps/landing",
+    "backend": "node scripts/backend.js",
+    "backend:seed": "node scripts/backend.js --seed",
+    "backend:test": "node scripts/backend.js --test",
+    "app": "concurrently --raw \"npm run mobile\" \"npm run backend\"",
+    "admin": "concurrently -n \"admin,api\"  -c \"cyan,green\"  \"npm run web\"    \"npm run backend\"",
+    "dev": "concurrently --raw \"npm run mobile\" \"npm run web\" \"npm run backend\"",
+    "setup": "node scripts/setup.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
   }
 }

@@ -5,9 +5,16 @@ interface BackButtonProps {
   onPress: () => void;
 }
 
+const HIT_SLOP = { top: 6, bottom: 6, left: 6, right: 6 };
+
 export default function BackButton({ onPress }: BackButtonProps) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.btn} activeOpacity={0.7}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.btn}
+      activeOpacity={0.7}
+      hitSlop={HIT_SLOP}
+    >
       <Text style={styles.arrow}>‹</Text>
     </TouchableOpacity>
   );
