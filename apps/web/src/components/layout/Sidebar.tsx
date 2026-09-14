@@ -7,8 +7,9 @@ const NAV = [
   { icon: '👨‍⚕️', label: 'Staff',      to: '/staff'      },
   { icon: '📋', label: 'Bookings',   to: '/bookings'   },
   { icon: '📁', label: 'Documents',  to: '/documents'  },
-  { icon: '📈', label: 'Reports',    to: '/reports'    },
-  { icon: '⚙️', label: 'Settings',   to: '/settings'   },
+  { icon: '📈', label: 'Reports',      to: '/reports'       },
+  { icon: '🕓', label: 'Activity Log', to: '/activity-log'  },
+  { icon: '⚙️', label: 'Settings',    to: '/settings'      },
 ];
 
 export default function Sidebar() {

@@ -51,7 +51,7 @@ export default function SignUpHousekeepingScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      await authService.registerHousekeeping({
+      const data = await authService.registerHousekeeping({
         fullName: form.fullName,
         email: form.email,
         phone: form.phone,
@@ -59,7 +59,7 @@ export default function SignUpHousekeepingScreen({ navigation }: Props) {
         idProof: form.idProof,
         workArea: form.workArea,
       });
-      navigation.navigate('OTPVerification', { email: form.email });
+      navigation.navigate('OTPVerification', { email: form.email, debugOtp: data.debugOtp });
     } catch (err: unknown) {
       const detail = (err as any)?.response?.data?.detail;
       const msg = Array.isArray(detail)

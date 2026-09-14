@@ -28,7 +28,7 @@ export default function AdminLogin() {
         userId: res.userId,
         fullName: res.fullName,
       });
-      navigate('/dashboard');
+      navigate(res.role === 'super_admin' ? '/superadmin/dashboard' : '/dashboard');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Invalid email or password.';
       setError(msg);

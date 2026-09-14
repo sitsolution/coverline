@@ -21,7 +21,7 @@ export type AuthStackParamList = {
   SignUpAdmin: undefined;
   Login: undefined;
   ForgotPassword: undefined;
-  OTPVerification: { email: string };
+  OTPVerification: { email: string; debugOtp?: string | null };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();

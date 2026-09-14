@@ -7,12 +7,14 @@ from app.core.database import get_db
 from app.core.deps import get_current_staff
 from app.models.availability import Availability, ShiftPreference
 from app.models.user import User
+from app.models.enums import ActivityActionType
 from app.schemas.availability import (
     AvailabilityDay,
     AvailabilityOut,
     AvailabilityUpdate,
     ShiftPreferencesOut,
 )
+from app.services.activity_log import log_activity
 from app.services.labels import WEEKDAY_NAMES
 
 router = APIRouter()
@@ -87,5 +89,14 @@ def update_availability(
         prefs.night_shifts = payload.preferences.night_shifts
         prefs.weekend_shifts = payload.preferences.weekend_shifts
 
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.availability_updated,
+        description="Updated availability schedule",
+        entity_type=None,
+        entity_id=None,
+        facility_id=None,
+    )
     db.commit()
     return _load(db, current_user)

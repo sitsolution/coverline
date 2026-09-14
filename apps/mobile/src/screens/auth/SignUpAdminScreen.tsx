@@ -51,7 +51,7 @@ export default function SignUpAdminScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      await authService.registerAdmin({
+      const data = await authService.registerAdmin({
         fullName: form.fullName,
         email: form.email,
         phone: form.phone,
@@ -60,7 +60,7 @@ export default function SignUpAdminScreen({ navigation }: Props) {
         facilityType: form.facilityType,
         city: form.city,
       });
-      navigation.navigate('OTPVerification', { email: form.email });
+      navigation.navigate('OTPVerification', { email: form.email, debugOtp: data.debugOtp });
     } catch (err: unknown) {
       const detail = (err as any)?.response?.data?.detail;
       const msg = Array.isArray(detail)
@@ -91,7 +91,12 @@ export default function SignUpAdminScreen({ navigation }: Props) {
           label="FACILITY TYPE"
           value={form.facilityType}
           placeholder="Select facility type"
-          options={['hospital', 'clinic', 'staffing_agency', 'diagnostic_centre']}
+          options={[
+            { label: 'Hospital',          value: 'hospital'          },
+            { label: 'Clinic',            value: 'clinic'            },
+            { label: 'Staffing Agency',   value: 'staffing_agency'   },
+            { label: 'Diagnostic Centre', value: 'diagnostic_centre' },
+          ]}
           onSelect={set('facilityType')}
           error={errors.facilityType}
         />

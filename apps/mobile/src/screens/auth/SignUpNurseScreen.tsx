@@ -51,7 +51,7 @@ export default function SignUpNurseScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      await authService.registerNurse({
+      const data = await authService.registerNurse({
         fullName: form.fullName,
         email: form.email,
         phone: form.phone,
@@ -60,7 +60,7 @@ export default function SignUpNurseScreen({ navigation }: Props) {
         specialty: form.specialty,
         experience: form.experience,
       });
-      navigation.navigate('OTPVerification', { email: form.email });
+      navigation.navigate('OTPVerification', { email: form.email, debugOtp: data.debugOtp });
     } catch (err: unknown) {
       const detail = (err as any)?.response?.data?.detail;
       const msg = Array.isArray(detail)

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.admin import AdminContext, require_admin
 from app.models.application import Application
 from app.models.document import Document
-from app.models.enums import AdminPermission, DocumentStatus, NotificationCategory
+from app.models.enums import ActivityActionType, AdminPermission, DocumentStatus, NotificationCategory
 from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.admin.document import (
@@ -19,6 +19,7 @@ from app.schemas.admin.document import (
 )
 from app.services import storage
 from app.services.labels import DOCUMENT_TYPE_LABELS
+from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
 router = APIRouter()
@@ -210,6 +211,26 @@ def verify_document(
         entity_id=document.id,
         commit=False,
     )
+    # Log for facility activity log (actor = admin)
+    log_activity(
+        admin.db,
+        actor=admin.user,
+        action=ActivityActionType.document_verified,
+        description=f"Verified {DOCUMENT_TYPE_LABELS.get(document.doc_type, document.doc_type.value)} for {user.full_name}",
+        entity_type="document",
+        entity_id=document.id,
+        facility_id=admin.primary_facility_id,
+    )
+    # Log for staff's My Activity feed (actor = staff member)
+    log_activity(
+        admin.db,
+        actor=user,
+        action=ActivityActionType.document_verified,
+        description=f"{DOCUMENT_TYPE_LABELS.get(document.doc_type, document.doc_type.value)} was verified",
+        entity_type="document",
+        entity_id=document.id,
+        facility_id=admin.primary_facility_id,
+    )
     admin.db.commit()
     admin.db.refresh(document)
     return _row(document, user)
@@ -244,6 +265,15 @@ def reject_document(
         entity_type="document",
         entity_id=document.id,
         commit=False,
+    )
+    log_activity(
+        admin.db,
+        actor=admin.user,
+        action=ActivityActionType.document_rejected,
+        description=f"Rejected {DOCUMENT_TYPE_LABELS.get(document.doc_type, document.doc_type.value)} for {user.full_name}",
+        entity_type="document",
+        entity_id=document.id,
+        facility_id=admin.primary_facility_id,
     )
     admin.db.commit()
     admin.db.refresh(document)

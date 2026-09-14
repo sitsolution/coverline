@@ -112,6 +112,31 @@ class AdminPermission(str, enum.Enum):
     documents = "documents"
     reports = "reports"
     billing = "billing"
+    activity_log = "activity_log"
+
+
+class ActivityActionType(str, enum.Enum):
+    """All action types written to activity_logs."""
+
+    # Staff actions
+    shift_applied = "shift_applied"
+    application_cancelled = "application_cancelled"
+    availability_updated = "availability_updated"
+    document_uploaded = "document_uploaded"
+
+    # Admin / facility actions
+    document_verified = "document_verified"
+    document_rejected = "document_rejected"
+    shift_created = "shift_created"
+    shift_updated = "shift_updated"
+    shift_cancelled = "shift_cancelled"
+    booking_confirmed = "booking_confirmed"
+    booking_completed = "booking_completed"
+    booking_cancelled = "booking_cancelled"
+
+    # User management (Super Admin)
+    user_added = "user_added"
+    user_deactivated = "user_deactivated"
 
 
 class InvoiceStatus(str, enum.Enum):

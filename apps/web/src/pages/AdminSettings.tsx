@@ -194,12 +194,12 @@ export default function AdminSettings() {
 
             {/* Quick links */}
             <div className="mt-4 pt-4 border-t border-line flex items-center gap-3">
-              <Link
+              {/* <Link
                 to="/billing"
                 className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
               >
                 💳 Invoices &amp; Billing
-              </Link>
+              </Link> */}
               <Link
                 to="/settings/add-user"
                 className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"

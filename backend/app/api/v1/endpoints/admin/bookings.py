@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.admin import AdminContext, require_admin
 from app.models.application import Application
 from app.models.enums import (
+    ActivityActionType,
     AdminPermission,
     ApplicationStatus,
     NotificationCategory,
@@ -30,6 +31,7 @@ from app.schemas.admin.booking import (
     BookingRow,
 )
 from app.schemas.admin.shift import TimelineEntry
+from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
 from .common import as_aware, booking_display_status, booking_reference, shift_reference
@@ -354,6 +356,26 @@ def mark_completed(
         )
 
     complete_application(admin.db, application, application.shift)
+    # Log for facility activity log (actor = admin)
+    log_activity(
+        admin.db,
+        actor=admin.user,
+        action=ActivityActionType.booking_completed,
+        description=f"Marked booking {booking_reference(application.id)} complete · {application.shift.specialty}",
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=application.shift.facility_id,
+    )
+    # Log for staff's My Activity feed (actor = staff member)
+    log_activity(
+        admin.db,
+        actor=application.staff,
+        action=ActivityActionType.booking_completed,
+        description=f"Completed shift at {application.shift.facility.name} · {application.shift.specialty}",
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=application.shift.facility_id,
+    )
     admin.db.commit()
     return get_booking(booking_id, admin)
 
@@ -394,6 +416,15 @@ def cancel_booking(
         entity_type="application",
         entity_id=application.id,
         commit=False,
+    )
+    log_activity(
+        admin.db,
+        actor=admin.user,
+        action=ActivityActionType.booking_cancelled,
+        description=f"Cancelled booking {booking_reference(application.id)} · {shift.specialty}",
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=shift.facility_id,
     )
     admin.db.commit()
     return get_booking(booking_id, admin)

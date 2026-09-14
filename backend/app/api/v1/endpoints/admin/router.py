@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints.admin import (
+    activity,
     billing,
     bookings,
     dashboard,
@@ -15,6 +16,7 @@ admin_router = APIRouter()
 # dashboard also carries /reports and /calendar — all three are read-only
 # overviews of the same data.
 admin_router.include_router(dashboard.router, tags=["admin: overview"])
+admin_router.include_router(activity.router, prefix="/activity", tags=["admin: activity"])
 admin_router.include_router(shifts.router, prefix="/shifts", tags=["admin: shifts"])
 admin_router.include_router(staff.router, prefix="/staff", tags=["admin: staff"])
 admin_router.include_router(bookings.router, prefix="/bookings", tags=["admin: bookings"])

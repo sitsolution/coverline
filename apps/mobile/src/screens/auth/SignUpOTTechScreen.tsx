@@ -51,7 +51,7 @@ export default function SignUpOTTechScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      await authService.registerOTTech({
+      const data = await authService.registerOTTech({
         fullName: form.fullName,
         email: form.email,
         phone: form.phone,
@@ -60,7 +60,7 @@ export default function SignUpOTTechScreen({ navigation }: Props) {
         certifyingBody: form.certifyingBody,
         experience: form.experience,
       });
-      navigation.navigate('OTPVerification', { email: form.email });
+      navigation.navigate('OTPVerification', { email: form.email, debugOtp: data.debugOtp });
     } catch (err: unknown) {
       const detail = (err as any)?.response?.data?.detail;
       const msg = Array.isArray(detail)

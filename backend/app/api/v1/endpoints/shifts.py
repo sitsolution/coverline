@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_staff, get_current_user
 from app.models.application import Application
 from app.models.availability import ShiftPreference
-from app.models.enums import ApplicationStatus, NotificationCategory, ShiftStatus, UserRole
+from app.models.enums import ActivityActionType, ApplicationStatus, NotificationCategory, ShiftStatus, UserRole
 from app.models.facility import Facility, FacilityMember
 from app.models.shift import Shift, ShiftFavorite
 from app.models.user import StaffProfile, User
@@ -17,6 +17,7 @@ from app.schemas.application import ApplicationOut, ApplyRequest
 from app.schemas.base import MessageResponse
 from app.schemas.shift import ShiftDetail, ShiftFilterOptions, ShiftListResponse
 from app.services import serializers
+from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
 router = APIRouter()
@@ -368,6 +369,15 @@ def apply_to_shift(
             entity_id=shift.id,
             commit=False,
         )
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.shift_applied,
+        description=f"Applied to shift at {shift.facility.name} · {shift.specialty}",
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=shift.facility_id,
+    )
     db.commit()
     db.refresh(application)
 

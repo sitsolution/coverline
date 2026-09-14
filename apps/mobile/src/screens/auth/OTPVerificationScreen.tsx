@@ -22,7 +22,7 @@ type Props = {
 };
 
 export default function OTPVerificationScreen({ navigation, route }: Props) {
-  const { email } = route.params;
+  const { email, debugOtp } = route.params;
   const { saveTokens } = useAuth();
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(59);
@@ -96,6 +96,12 @@ export default function OTPVerificationScreen({ navigation, route }: Props) {
           {'Enter the 6-digit code sent to '}
           <Text style={styles.emailHighlight}>{email}</Text>
         </Text>
+
+        {!!debugOtp && (
+          <View style={styles.debugBanner}>
+            <Text style={styles.debugText}>🔧 Test code: <Text style={styles.debugCode}>{debugOtp}</Text></Text>
+          </View>
+        )}
 
         <TextInput
           ref={inputRef}
@@ -179,4 +185,15 @@ const styles = StyleSheet.create({
   timerText: { fontSize: 11.5, color: '#5C6B7A' },
   timerBold: { fontSize: 11.5, color: '#14202E', fontWeight: '700' },
   resendLink: { fontSize: 11.5, color: '#175E86', fontWeight: '700' },
+  debugBanner: {
+    marginTop: 10,
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#F5C842',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  debugText: { fontSize: 11.5, color: '#7A5C00' },
+  debugCode: { fontWeight: '800', letterSpacing: 1.5 },
 });

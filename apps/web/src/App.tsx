@@ -16,6 +16,16 @@ import NotificationsCenter from './pages/NotificationsCenter';
 import AdminSettings from './pages/AdminSettings';
 import AddAdminUser from './pages/AddAdminUser';
 import InvoicesBilling from './pages/InvoicesBilling';
+import ActivityLog from './pages/ActivityLog';
+import SADashboard from './pages/superadmin/SADashboard';
+import SAUserManagement from './pages/superadmin/SAUserManagement';
+import SAAddEditUser from './pages/superadmin/SAAddEditUser';
+import SARolesPermissions from './pages/superadmin/SARolesPermissions';
+import SAFacilities from './pages/superadmin/SAFacilities';
+import SAFacilityDetail from './pages/superadmin/SAFacilityDetail';
+import SAReports from './pages/superadmin/SAReports';
+import SAActivityLog from './pages/superadmin/SAActivityLog';
+import SASettings from './pages/superadmin/SASettings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { accessToken, isLoading } = useAuth();
@@ -23,16 +33,30 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return accessToken ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { accessToken, role, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!accessToken) return <Navigate to="/login" replace />;
+  if (role !== 'super_admin') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
-  const { accessToken, isLoading } = useAuth();
+  const { accessToken, role, isLoading } = useAuth();
   if (isLoading) return null;
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={accessToken ? <Navigate to="/dashboard" replace /> : <AdminLogin />}
+        element={
+          accessToken
+            ? <Navigate to={role === 'super_admin' ? '/superadmin/dashboard' : '/dashboard'} replace />
+            : <AdminLogin />
+        }
       />
+
+      {/* Facility Admin routes */}
       <Route path="/dashboard"         element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/shifts"            element={<PrivateRoute><ShiftsManagement /></PrivateRoute>} />
       <Route path="/shifts/new"        element={<PrivateRoute><CreateShift /></PrivateRoute>} />
@@ -48,7 +72,21 @@ function AppRoutes() {
       <Route path="/settings"          element={<PrivateRoute><AdminSettings /></PrivateRoute>} />
       <Route path="/settings/add-user" element={<PrivateRoute><AddAdminUser /></PrivateRoute>} />
       <Route path="/billing"           element={<PrivateRoute><InvoicesBilling /></PrivateRoute>} />
-      <Route path="*"                  element={<Navigate to="/login" replace />} />
+      <Route path="/activity-log"      element={<PrivateRoute><ActivityLog /></PrivateRoute>} />
+
+      {/* Super Admin routes */}
+      <Route path="/superadmin/dashboard"      element={<SuperAdminRoute><SADashboard /></SuperAdminRoute>} />
+      <Route path="/superadmin/users"          element={<SuperAdminRoute><SAUserManagement /></SuperAdminRoute>} />
+      <Route path="/superadmin/users/new"      element={<SuperAdminRoute><SAAddEditUser /></SuperAdminRoute>} />
+      <Route path="/superadmin/users/:id/edit" element={<SuperAdminRoute><SAAddEditUser /></SuperAdminRoute>} />
+      <Route path="/superadmin/roles"          element={<SuperAdminRoute><SARolesPermissions /></SuperAdminRoute>} />
+      <Route path="/superadmin/facilities"      element={<SuperAdminRoute><SAFacilities /></SuperAdminRoute>} />
+      <Route path="/superadmin/facilities/:id" element={<SuperAdminRoute><SAFacilityDetail /></SuperAdminRoute>} />
+      <Route path="/superadmin/reports"        element={<SuperAdminRoute><SAReports /></SuperAdminRoute>} />
+      <Route path="/superadmin/activity-log"   element={<SuperAdminRoute><SAActivityLog /></SuperAdminRoute>} />
+      <Route path="/superadmin/settings"       element={<SuperAdminRoute><SASettings /></SuperAdminRoute>} />
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

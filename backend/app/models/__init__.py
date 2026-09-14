@@ -4,6 +4,8 @@ Importing every model here is what makes ``Base.metadata`` complete — Alembic'
 autogenerate only sees tables whose module has been imported.
 """
 
+from app.models.activity_log import ActivityLog
+from app.models.role_permission import RolePermission
 from app.models.application import Application
 from app.models.availability import Availability, ShiftPreference
 from app.models.billing import Invoice, InvoiceLineItem, PaymentMethod
@@ -11,6 +13,7 @@ from app.models.document import Document
 from app.models.enums import (
     FACILITY_ADMIN_ROLES,
     STAFF_ROLES,
+    ActivityActionType,
     AdminPermission,
     ApplicationStatus,
     DocumentStatus,
@@ -36,6 +39,9 @@ from app.models.support import DeviceToken, Faq, SupportTicket
 from app.models.user import StaffProfile, User, UserSettings
 
 __all__ = [
+    "ActivityActionType",
+    "ActivityLog",
+    "RolePermission",
     "FACILITY_ADMIN_ROLES",
     "InvoiceStatus",
     "FacilityRole",

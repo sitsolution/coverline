@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.document import Document
-from app.models.enums import DocumentStatus, DocumentType
+from app.models.enums import ActivityActionType, DocumentStatus, DocumentType
 from app.models.user import User
 from app.schemas.base import MessageResponse
 from app.schemas.document import (
@@ -18,6 +18,7 @@ from app.schemas.document import (
     DocumentTypeOption,
 )
 from app.services import storage
+from app.services.activity_log import log_activity
 from app.services.labels import (
     DOCUMENT_TYPE_LABELS,
     DOCUMENT_TYPES_WITH_EXPIRY,
@@ -198,6 +199,15 @@ def upload_document(
         status=DocumentStatus.pending,
     )
     db.add(document)
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.document_uploaded,
+        description=f"Uploaded {DOCUMENT_TYPE_LABELS.get(doc_type, doc_type.value)}",
+        entity_type="document",
+        entity_id=None,  # document.id not yet assigned before commit
+        facility_id=None,
+    )
     db.commit()
     db.refresh(document)
     return _to_out(document)

@@ -9,13 +9,21 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
+type PickerOption = string | { label: string; value: string };
+
 interface PickerFieldProps {
   label: string;
   value: string;
-  options: string[];
+  options: PickerOption[];
   placeholder?: string;
   onSelect: (val: string) => void;
   error?: string;
+}
+
+// Normalise both plain strings and {label,value} objects into a consistent shape.
+// Plain strings use the same text for both label and value (backwards-compatible).
+function norm(opt: PickerOption): { label: string; value: string } {
+  return typeof opt === 'string' ? { label: opt, value: opt } : opt;
 }
 
 export default function PickerField({
@@ -29,8 +37,14 @@ export default function PickerField({
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
+  const normalised = options.map(norm);
+  const firstValue = normalised[0]?.value ?? '';
+
+  // Find the display label for the currently selected value
+  const selectedLabel = normalised.find((o) => o.value === value)?.label ?? '';
+
   const handleDone = () => {
-    onSelect(tempValue || options[0]);
+    onSelect(tempValue || firstValue);
     setOpen(false);
   };
 
@@ -47,8 +61,8 @@ export default function PickerField({
             dropdownIconColor="#5C6B7A"
           >
             <Picker.Item label={placeholder} value="" color="#A9B8C4" />
-            {options.map((opt) => (
-              <Picker.Item key={opt} label={opt} value={opt} color="#14202E" />
+            {normalised.map((o) => (
+              <Picker.Item key={o.value} label={o.label} value={o.value} color="#14202E" />
             ))}
           </Picker>
         </View>
@@ -66,8 +80,8 @@ export default function PickerField({
         onPress={() => { setTempValue(value); setOpen(true); }}
         activeOpacity={0.7}
       >
-        <Text style={value ? styles.value : styles.placeholder}>
-          {value || placeholder}
+        <Text style={selectedLabel ? styles.value : styles.placeholder}>
+          {selectedLabel || placeholder}
         </Text>
         <Text style={styles.chevron}>▾</Text>
       </TouchableOpacity>
@@ -86,11 +100,11 @@ export default function PickerField({
             </TouchableOpacity>
           </View>
           <Picker
-            selectedValue={tempValue || options[0]}
+            selectedValue={tempValue || firstValue}
             onValueChange={(val) => setTempValue(val as string)}
           >
-            {options.map((opt) => (
-              <Picker.Item key={opt} label={opt} value={opt} />
+            {normalised.map((o) => (
+              <Picker.Item key={o.value} label={o.label} value={o.value} />
             ))}
           </Picker>
         </View>

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.admin import AdminContext, require_admin
 from app.models.application import Application
 from app.models.enums import (
+    ActivityActionType,
     AdminPermission,
     ApplicationStatus,
     NotificationCategory,
@@ -33,6 +34,7 @@ from app.schemas.admin.shift import (
 )
 from app.schemas.base import MessageResponse
 from app.services.labels import role_label
+from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
 from .common import (
@@ -273,6 +275,17 @@ def create_shift(
     db.commit()
     db.refresh(shift)
 
+    log_activity(
+        db,
+        actor=admin.user,
+        action=ActivityActionType.shift_created,
+        description=f"Created shift {shift_reference(shift.id)} {shift.title or shift.specialty}",
+        entity_type="shift",
+        entity_id=shift.id,
+        facility_id=facility_id,
+    )
+    db.commit()
+
     if payload.publish and payload.notify_staff:
         _notify_matching_staff(db, shift)
 
@@ -373,7 +386,6 @@ def _detail(admin: AdminContext, shift: Shift) -> AdminShiftDetail:
     base = _row(shift, pending, assigned)
     return AdminShiftDetail(
         **base.model_dump(by_alias=False),
-        title=shift.title,
         facility_id=shift.facility_id,
         facility_name=shift.facility.name,
         duration_hours=shift.duration_hours,
@@ -553,6 +565,7 @@ def assign_applicant(
     if shift.slots_filled >= shift.slots:
         shift.status = ShiftStatus.filled
 
+    staff = db.query(User).filter(User.id == application.staff_id).first()
     notify(
         db,
         user_id=application.staff_id,
@@ -562,6 +575,15 @@ def assign_applicant(
         entity_type="application",
         entity_id=application.id,
         commit=False,
+    )
+    log_activity(
+        db,
+        actor=admin.user,
+        action=ActivityActionType.booking_confirmed,
+        description=f"Confirmed {staff.full_name if staff else 'staff'} for {shift_reference(shift.id)} {shift.specialty}",
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=shift.facility_id,
     )
     db.commit()
     db.refresh(shift)

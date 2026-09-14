@@ -136,8 +136,8 @@ export default function ProfileScreen({ navigation }: Props) {
           </>
         )}
 
-        <TouchableOpacity style={styles.earningsBtn} onPress={() => navigation.navigate('Earnings')} activeOpacity={0.85}>
-          <Text style={styles.earningsBtnText}>💰  My Earnings & Payments</Text>
+        <TouchableOpacity style={styles.earningsBtn} onPress={() => navigation.navigate('MyActivity')} activeOpacity={0.85}>
+          <Text style={styles.earningsBtnText}>📋  My Activity</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate('Settings')} activeOpacity={0.85}>

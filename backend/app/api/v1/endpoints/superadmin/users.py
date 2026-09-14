@@ -1,0 +1,301 @@
+"""Super Admin user management — /superadmin/users."""
+
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import EmailStr
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
+
+from app.api.v1.endpoints.superadmin.deps import require_super_admin
+from app.core.deps import get_db
+from app.core.security import hash_password
+from app.models.document import Document
+from app.models.enums import DocumentStatus, DocumentType, FacilityRole, UserRole
+from app.models.facility import Facility, FacilityMember
+from app.models.user import User, UserSettings
+from app.schemas.base import CamelModel, MessageResponse
+from app.services import otp as otp_service
+
+router = APIRouter()
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
+class UserListItem(CamelModel):
+    id: int
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+    role: UserRole
+    is_active: bool
+    is_verified: bool
+    facility_id: Optional[int] = None
+    facility_name: Optional[str] = None
+    created_at: datetime
+
+
+class DocumentBrief(CamelModel):
+    id: int
+    doc_type: str
+    status: DocumentStatus
+    uploaded_at: datetime
+    expiry_date: Optional[datetime] = None
+
+
+class UserDetailItem(UserListItem):
+    documents: List[DocumentBrief] = []
+
+
+class UserListResponse(CamelModel):
+    items: List[UserListItem]
+    total: int
+
+
+class CreateUserBody(CamelModel):
+    full_name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    password: str
+    role: UserRole
+    facility_id: Optional[int] = None
+    is_active: bool = True
+
+
+class UpdateUserBody(CamelModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
+    facility_id: Optional[int] = None
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _facility_map(db: Session, user_ids: list[int]) -> dict[int, tuple[Optional[int], Optional[str]]]:
+    """Returns {user_id: (facility_id, facility_name)} for the first membership of each user."""
+    if not user_ids:
+        return {}
+    rows = (
+        db.query(FacilityMember.user_id, Facility.id, Facility.name)
+        .join(Facility, FacilityMember.facility_id == Facility.id)
+        .filter(FacilityMember.user_id.in_(user_ids))
+        .order_by(FacilityMember.user_id, FacilityMember.id)
+        .all()
+    )
+    result: dict[int, tuple[Optional[int], Optional[str]]] = {}
+    for uid, fid, fname in rows:
+        result.setdefault(uid, (fid, fname))
+    return result
+
+
+def _build_list_item(user: User, fac_map: dict) -> UserListItem:
+    fid, fname = fac_map.get(user.id, (None, None))
+    return UserListItem(
+        id=user.id,
+        full_name=user.full_name,
+        email=user.email,
+        phone=user.phone,
+        role=user.role,
+        is_active=user.is_active,
+        is_verified=user.is_verified,
+        facility_id=fid,
+        facility_name=fname,
+        created_at=user.created_at,
+    )
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("", response_model=UserListResponse)
+def list_users(
+    _: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+    search: Optional[str] = Query(None),
+    role: Optional[UserRole] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    is_verified: Optional[bool] = Query(None),
+    facility_id: Optional[int] = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    query = db.query(User)
+
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(User.full_name.ilike(pattern), User.email.ilike(pattern))
+        )
+    if role is not None:
+        query = query.filter(User.role == role)
+    if is_active is not None:
+        query = query.filter(User.is_active == is_active)
+    if is_verified is not None:
+        query = query.filter(User.is_verified == is_verified)
+    if facility_id is not None:
+        sub = db.query(FacilityMember.user_id).filter(FacilityMember.facility_id == facility_id).subquery()
+        query = query.filter(User.id.in_(sub))
+
+    total = query.count()
+    users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+
+    fac_map = _facility_map(db, [u.id for u in users])
+    items = [_build_list_item(u, fac_map) for u in users]
+
+    return UserListResponse(items=items, total=total)
+
+
+@router.post("", response_model=UserListItem, status_code=status.HTTP_201_CREATED)
+def create_user(
+    body: CreateUserBody,
+    current_user: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if body.phone and db.query(User).filter(User.phone == body.phone).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already registered")
+
+    user = User(
+        email=body.email,
+        phone=body.phone or None,
+        full_name=body.full_name,
+        hashed_password=hash_password(body.password),
+        role=body.role,
+        is_active=body.is_active,
+        is_verified=True,   # super admin creates verified accounts
+    )
+    db.add(user)
+    db.flush()
+
+    db.add(UserSettings(user_id=user.id))
+
+    # If a facility is provided, create a FacilityMember link
+    if body.facility_id:
+        facility = db.query(Facility).filter(Facility.id == body.facility_id).first()
+        if not facility:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Facility not found")
+        db.add(FacilityMember(
+            facility_id=body.facility_id,
+            user_id=user.id,
+            facility_role=FacilityRole.staff,
+        ))
+
+    db.commit()
+    db.refresh(user)
+
+    fac_map = _facility_map(db, [user.id])
+    return _build_list_item(user, fac_map)
+
+
+@router.get("/{user_id}", response_model=UserDetailItem)
+def get_user(
+    user_id: int,
+    _: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    fac_map = _facility_map(db, [user.id])
+    base = _build_list_item(user, fac_map)
+
+    docs = (
+        db.query(Document)
+        .filter(Document.user_id == user_id)
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+    doc_items = [
+        DocumentBrief(
+            id=d.id,
+            doc_type=d.doc_type.value if hasattr(d.doc_type, "value") else d.doc_type,
+            status=d.status,
+            uploaded_at=d.created_at,
+            expiry_date=d.expiry_date,
+        )
+        for d in docs
+    ]
+
+    return UserDetailItem(**base.model_dump(), documents=doc_items)
+
+
+@router.put("/{user_id}", response_model=UserListItem)
+def update_user(
+    user_id: int,
+    body: UpdateUserBody,
+    _: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if body.full_name is not None:
+        user.full_name = body.full_name
+    if body.email is not None:
+        user.email = body.email
+    if body.phone is not None:
+        user.phone = body.phone
+    if body.role is not None:
+        user.role = body.role
+    if body.is_active is not None:
+        user.is_active = body.is_active
+
+    # Update facility assignment
+    if body.facility_id is not None:
+        # Remove existing memberships
+        db.query(FacilityMember).filter(FacilityMember.user_id == user.id).delete()
+        if body.facility_id != 0:
+            db.add(FacilityMember(
+                facility_id=body.facility_id,
+                user_id=user.id,
+                facility_role=FacilityRole.staff,
+            ))
+
+    db.commit()
+    db.refresh(user)
+
+    fac_map = _facility_map(db, [user.id])
+    return _build_list_item(user, fac_map)
+
+
+@router.post("/{user_id}/reset-password", response_model=MessageResponse)
+def reset_user_password(
+    user_id: int,
+    _: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Trigger a password reset email for any user.
+
+    Uses the same token flow as the self-service forgot-password endpoint,
+    so the user receives a reset link and sets their own new password.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reset password for a deactivated account.",
+        )
+
+    otp_service.issue_reset_token(db, user)
+    return MessageResponse(message=f"Password reset email sent to {user.email}")
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    _: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    user.is_active = False
+    db.commit()
