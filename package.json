@@ -19,7 +19,7 @@
     "backend:test": "node scripts/backend.js --test",
     "app": "concurrently --raw \"npm run mobile\" \"npm run backend\"",
     "admin": "concurrently -n \"admin,api\"  -c \"cyan,green\"  \"npm run web\"    \"npm run backend\"",
-    "dev": "concurrently --raw \"npm run mobile\" \"npm run web\" \"npm run backend\"",
+    "dev": "concurrently --raw \"npm run mobile\" \"npm run web\" \"npm run landing\" \"npm run backend\"",
     "setup": "node scripts/setup.js"
   },
   "devDependencies": {
