@@ -3,7 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import Pagination from '../components/ui/Pagination';
 import adminShiftsService, { AdminShiftRow } from '../services/adminShiftsService';
+
+const PAGE_SIZE = 25;
 
 type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral' | 'info';
 
@@ -34,6 +37,7 @@ export default function ShiftsManagement() {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState<AdminShiftRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -41,7 +45,7 @@ export default function ShiftsManagement() {
   const [location, setLocation] = useState('');
   const [specialty, setSpecialty] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p = page) => {
     setLoading(true);
     setError('');
     try {
@@ -50,7 +54,8 @@ export default function ShiftsManagement() {
         status: status || undefined,
         location: location || undefined,
         specialty: specialty || undefined,
-        limit: 50,
+        limit: PAGE_SIZE,
+        offset: (p - 1) * PAGE_SIZE,
       });
       setShifts(res.items);
       setTotal(res.total);
@@ -59,13 +64,16 @@ export default function ShiftsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, location, specialty]);
+  }, [search, status, location, specialty, page]);
 
-  // debounce search
+  // reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, status, location, specialty]);
+
+  // debounce search + reload
   useEffect(() => {
-    const t = setTimeout(() => load(), 500);
+    const t = setTimeout(() => load(page), 400);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, page]);
 
   const hasFilters = search || status || location || specialty;
 
@@ -166,9 +174,7 @@ export default function ShiftsManagement() {
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate text-center mt-[14px]">
-          {shifts.length} of {total} shifts
-        </p>
+        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
       </Panel>
     </Layout>
   );

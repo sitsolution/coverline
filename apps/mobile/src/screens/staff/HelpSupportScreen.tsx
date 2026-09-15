@@ -14,6 +14,7 @@ import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
 import supportService, { FaqOut } from '../../services/supportService';
+import chatService from '../../services/chatService';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'HelpSupport'>;
@@ -50,7 +51,6 @@ export default function HelpSupportScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [faqs, setFaqs] = useState<FaqOut[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async (q?: string) => {
@@ -72,16 +72,8 @@ export default function HelpSupportScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [search, load]);
 
-  const handleLiveChat = async () => {
-    setSubmitting(true);
-    try {
-      await supportService.createTicket('Live Chat Request', 'User requested live chat support.');
-      setToast({ visible: true, message: 'Support ticket created. Our team will contact you shortly.', type: 'success' });
-    } catch {
-      setToast({ visible: true, message: 'Could not submit request. Please try emailing us.', type: 'error' });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleLiveChat = () => {
+    navigation.navigate('MessagesList');
   };
 
   return (
@@ -128,8 +120,8 @@ export default function HelpSupportScreen({ navigation }: Props) {
           <Text style={styles.contactNote}>
             Our support team typically replies within 2 hours.
           </Text>
-          <TouchableOpacity style={styles.btnPrimary} activeOpacity={0.85} onPress={handleLiveChat} disabled={submitting}>
-            <Text style={styles.btnPrimaryText}>{submitting ? 'Submitting…' : '💬  Live Chat'}</Text>
+          <TouchableOpacity style={styles.btnPrimary} activeOpacity={0.85} onPress={handleLiveChat}>
+            <Text style={styles.btnPrimaryText}>💬  Live Chat</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.btnOutline}

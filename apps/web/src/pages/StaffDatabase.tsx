@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import Pagination from '../components/ui/Pagination';
 import adminStaffService, { StaffRow } from '../services/adminStaffService';
+
+const PAGE_SIZE = 25;
 
 type BadgeVariant = 'success' | 'warning' | 'neutral' | 'info';
 
@@ -18,6 +21,7 @@ const CHIP = 'bg-white border border-line rounded-sm px-[11px] py-[6px] text-[11
 export default function StaffDatabase() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -26,7 +30,7 @@ export default function StaffDatabase() {
   const [verification, setVerification] = useState('');
   const [minRating, setMinRating] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p = page) => {
     setLoading(true);
     setError('');
     try {
@@ -36,7 +40,8 @@ export default function StaffDatabase() {
         availability: availability || undefined,
         verification: verification || undefined,
         minRating: minRating ? parseFloat(minRating) : undefined,
-        limit: 50,
+        limit: PAGE_SIZE,
+        offset: (p - 1) * PAGE_SIZE,
       });
       setStaff(res.items);
       setTotal(res.total);
@@ -45,12 +50,14 @@ export default function StaffDatabase() {
     } finally {
       setLoading(false);
     }
-  }, [search, role, availability, verification, minRating]);
+  }, [search, role, availability, verification, minRating, page]);
+
+  useEffect(() => { setPage(1); }, [search, role, availability, verification, minRating]);
 
   useEffect(() => {
-    const t = setTimeout(() => load(), 400);
+    const t = setTimeout(() => load(page), 400);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, page]);
 
   const hasFilters = search || role || availability || verification || minRating;
 
@@ -145,9 +152,7 @@ export default function StaffDatabase() {
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate text-center mt-[14px]">
-          {staff.length} of {total} staff members
-        </p>
+        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
       </Panel>
     </Layout>
   );

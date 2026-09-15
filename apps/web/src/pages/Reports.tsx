@@ -104,13 +104,13 @@ export default function Reports() {
           </div>
         </Panel>
 
-        {/* Right — Top Doctors */}
-        <Panel title="Top Doctors by Shifts Completed">
+        {/* Right — Top Staff */}
+        <Panel title="Top Staff by Shifts Completed">
           <div className="overflow-hidden rounded-[10px] border border-line">
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Doctor</th>
+                  <th>Staff Member</th>
                   <th>Shifts</th>
                   <th>Avg. Rating</th>
                 </tr>
@@ -139,7 +139,7 @@ export default function Reports() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Doctor</th>
+                <th>Staff Member</th>
                 <th>Document</th>
                 <th>Expires</th>
                 <th>Status</th>

@@ -49,6 +49,7 @@ class BookingMessageCreate(CamelModel):
 class BookingDetail(BookingRow):
     facility_name: str
     specialty: str
+    shift_role: str
     pay_rate: float
     duration_hours: float
     staff_phone: Optional[str] = None

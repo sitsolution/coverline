@@ -66,6 +66,7 @@ class NotificationCategory(str, enum.Enum):
     payment = "payment"
     document = "document"
     system = "system"
+    message = "message"
 
 
 class PaymentStatus(str, enum.Enum):

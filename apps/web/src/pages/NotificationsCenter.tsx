@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
+import ChatDrawer from '../components/ChatDrawer';
+import chatService from '../services/chatService';
 import { api } from '../services/api';
 
 const TABS = ['All', 'Unread', 'Shift Alerts', 'Applications', 'System'];
@@ -20,6 +23,8 @@ interface NotificationOut {
   title: string;
   body: string;
   category: string;
+  entityType?: string;
+  entityId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -30,6 +35,7 @@ function categoryIcon(category: string): string {
     case 'application': return '📥';
     case 'document': return '📄';
     case 'payment': return '💰';
+    case 'message': return '💬';
     default: return '⚙️';
   }
 }
@@ -44,9 +50,11 @@ function timeAgo(iso: string): string {
 }
 
 export default function NotificationsCenter() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All');
   const [notifs, setNotifs] = useState<NotificationOut[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chat, setChat] = useState<{ staffId: number; staffName: string } | null>(null);
 
   const load = useCallback(async (tab: string) => {
     setLoading(true);
@@ -65,6 +73,22 @@ export default function NotificationsCenter() {
       await api.post(`/notifications/${id}/read`);
       setNotifs(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     } catch {}
+  };
+
+  const handlePress = async (n: NotificationOut) => {
+    if (!n.isRead) handleMarkRead(n.id);
+    if ((n.category === 'shift_alert' || n.category === 'application') && n.entityId) {
+      navigate(`/shifts/${n.entityId}`);
+    } else if (n.category === 'message' && n.entityId) {
+      try {
+        const room = await chatService.getRoomById(n.entityId);
+        setChat({ staffId: room.staffId, staffName: room.staffName });
+      } catch {}
+    } else if (n.category === 'document') {
+      navigate('/documents');
+    } else if (n.category === 'payment') {
+      navigate('/bookings');
+    }
   };
 
   const handleMarkAllRead = async () => {
@@ -97,8 +121,8 @@ export default function NotificationsCenter() {
         ) : notifs.map((n) => (
           <div
             key={n.id}
-            className={`flex gap-[10px] items-start py-[11px] border-b border-line last:border-0 cursor-pointer ${!n.isRead ? 'bg-sky rounded-[8px] px-2' : ''}`}
-            onClick={() => !n.isRead && handleMarkRead(n.id)}
+            className={`flex gap-[10px] items-start py-[11px] border-b border-line last:border-0 cursor-pointer hover:bg-sky/60 transition-colors rounded-[8px] px-2 ${!n.isRead ? 'bg-sky' : ''}`}
+            onClick={() => handlePress(n)}
           >
             <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center text-[16px] flex-shrink-0">
               {categoryIcon(n.category)}
@@ -113,6 +137,14 @@ export default function NotificationsCenter() {
           </div>
         ))}
       </Panel>
+
+      {chat && (
+        <ChatDrawer
+          staffId={chat.staffId}
+          staffName={chat.staffName}
+          onClose={() => setChat(null)}
+        />
+      )}
     </Layout>
   );
 }

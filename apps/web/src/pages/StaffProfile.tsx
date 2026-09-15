@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge';
 import KpiCard from '../components/ui/KpiCard';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
+import ChatDrawer from '../components/ChatDrawer';
 import adminStaffService, { StaffDetail, StaffShiftHistoryRow, StaffReviewOut, StaffNoteOut } from '../services/adminStaffService';
 
 const TABS = ['Overview', 'Professional Details', 'Documents', 'Shift History', 'Reviews', 'Notes'];
@@ -43,6 +44,8 @@ export default function StaffProfile() {
   const [notes, setNotes] = useState<StaffNoteOut[]>([]);
   const [noteText, setNoteText] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Review form
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -143,9 +146,12 @@ export default function StaffProfile() {
               📞 Call
             </a>
           )}
-          <a href={`mailto:${profile.email}`} className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] bg-transparent">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] bg-transparent"
+          >
             ✉ Message
-          </a>
+          </button>
         </div>
       </div>
 
@@ -432,6 +438,14 @@ export default function StaffProfile() {
             </div>
           ))}
         </Panel>
+      )}
+
+      {chatOpen && (
+        <ChatDrawer
+          staffId={staffId}
+          staffName={profile.name}
+          onClose={() => setChatOpen(false)}
+        />
       )}
     </Layout>
   );

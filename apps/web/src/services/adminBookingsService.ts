@@ -33,6 +33,7 @@ export interface TimelineEntry {
 export interface BookingDetail extends BookingRow {
   facilityName: string;
   specialty: string;
+  shiftRole: string;
   payRate: number;
   durationHours: number;
   staffEmail: string;

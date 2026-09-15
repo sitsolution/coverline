@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import Panel from '../../components/ui/Panel';
@@ -27,112 +27,144 @@ interface AddModalProps {
   onCreated: () => void;
 }
 
+const inputCls = 'w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2 bg-white';
+const labelCls = 'block text-[11.5px] font-bold text-slate mb-[6px]';
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 function AddFacilityModal({ onClose, onCreated }: AddModalProps) {
-  const [name, setName]               = useState('');
-  const [facilityType, setFacilityType] = useState('hospital');
-  const [city, setCity]               = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [saving, setSaving]           = useState(false);
-  const [error, setError]             = useState('');
+  const [name, setName]                   = useState('');
+  const [facilityType, setFacilityType]   = useState('hospital');
+  const [city, setCity]                   = useState('');
+  const [adminFullName, setAdminFullName] = useState('');
+  const [adminEmail, setAdminEmail]       = useState('');
+  const [adminPhone, setAdminPhone]       = useState('');
+  const [password, setPassword]           = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPwd, setShowPwd]             = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [error, setError]                 = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setSaving(true);
     setError('');
     try {
-      await superAdminService.createFacility({ name, facilityType, city, contactEmail });
+      await superAdminService.createFacility({
+        name, facilityType, city,
+        adminFullName, adminEmail,
+        adminPhone: adminPhone || undefined,
+        adminPassword: password,
+      });
       onCreated();
-    } catch {
-      setError('Failed to create facility. Please try again.');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Failed to create facility.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(8,28,44,0.55)' }}
-    >
-      <div className="bg-white rounded-[14px] border border-line w-full max-w-[420px] p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(8,28,44,0.55)' }}>
+      <div className="bg-white rounded-[14px] border border-line w-full max-w-[480px] shadow-xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line flex-shrink-0">
           <span className="font-display font-extrabold text-[15px] text-ink">Add Facility</span>
-          <button
-            onClick={onClose}
-            className="text-slate hover:text-ink text-[18px] leading-none bg-transparent outline-none cursor-pointer"
-          >
-            ×
-          </button>
+          <button onClick={onClose} className="text-slate hover:text-ink text-[20px] leading-none bg-transparent outline-none cursor-pointer">×</button>
         </div>
 
-        {error && (
-          <div className="mb-3 px-3 py-[8px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
-            {error}
-          </div>
-        )}
+        {/* Scrollable body */}
+        <div className="overflow-y-auto px-6 py-4 flex flex-col gap-4">
+          {error && (
+            <div className="px-3 py-[8px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-[13px]">
+          {/* Section: Facility Details */}
           <div>
-            <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Facility Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="e.g. Apollo Hospital Mumbai"
-              className="w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2 bg-white"
-            />
+            <p className="text-[10.5px] font-bold text-slate uppercase tracking-wider mb-3">Facility Details</p>
+            <div className="flex flex-col gap-[13px]">
+              <Field label="Hospital / Clinic Name">
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  required placeholder="e.g. Apollo Hospital Mumbai" className={inputCls} />
+              </Field>
+              <Field label="Facility Type">
+                <select value={facilityType} onChange={(e) => setFacilityType(e.target.value)} className={inputCls + ' cursor-pointer'}>
+                  {TYPE_OPTIONS.filter((o) => o.value).map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="City / Location">
+                <input type="text" value={city} onChange={(e) => setCity(e.target.value)}
+                  required placeholder="e.g. Mumbai, Maharashtra" className={inputCls} />
+              </Field>
+            </div>
           </div>
+
+          <div className="border-t border-line" />
+
+          {/* Section: Admin Account */}
           <div>
-            <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Type</label>
-            <select
-              value={facilityType}
-              onChange={(e) => setFacilityType(e.target.value)}
-              className="w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2 bg-white cursor-pointer"
-            >
-              {TYPE_OPTIONS.filter((o) => o.value).map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <p className="text-[10.5px] font-bold text-slate uppercase tracking-wider mb-3">Admin Account</p>
+            <div className="flex flex-col gap-[13px]">
+              <Field label="Full Name">
+                <input type="text" value={adminFullName} onChange={(e) => setAdminFullName(e.target.value)}
+                  required placeholder="Admin Name" className={inputCls} />
+              </Field>
+              <Field label="Email Address">
+                <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)}
+                  required placeholder="admin@hospital.com" className={inputCls} />
+              </Field>
+              <Field label="Phone Number">
+                <input type="tel" value={adminPhone} onChange={(e) => setAdminPhone(e.target.value)}
+                  placeholder="+91 9876543210" className={inputCls} />
+              </Field>
+              <Field label="Password">
+                <div className="relative">
+                  <input type={showPwd ? 'text' : 'password'} value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required placeholder="Create password" className={inputCls + ' pr-10'} />
+                  <button type="button" onClick={() => setShowPwd(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate hover:text-ink" tabIndex={-1}>
+                    {showPwd
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
+              </Field>
+              <Field label="Confirm Password">
+                <input type={showPwd ? 'text' : 'password'} value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required placeholder="Repeat password" className={inputCls} />
+              </Field>
+            </div>
           </div>
-          <div>
-            <label className="block text-[11.5px] font-bold text-slate mb-[6px]">City</label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              required
-              placeholder="e.g. Mumbai"
-              className="w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2 bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Contact Email</label>
-            <input
-              type="email"
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              placeholder="admin@facility.com"
-              className="w-full px-3 py-[10px] border-[1.4px] border-line rounded-[9px] text-[12.5px] text-ink outline-none focus:border-navy-2 bg-white"
-            />
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-white text-slate border border-line text-[12.5px] font-bold px-4 py-[10px] rounded-[9px] hover:border-navy transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 bg-navy text-white text-[12.5px] font-bold px-4 py-[10px] rounded-[9px] disabled:opacity-60 hover:bg-navy-2 transition-colors"
-            >
-              {saving ? 'Creating…' : 'Create Facility'}
-            </button>
-          </div>
-        </form>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-line flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="flex-1 bg-white text-slate border border-line text-[12.5px] font-bold px-4 py-[10px] rounded-[9px] hover:border-navy transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            className="flex-1 bg-navy text-white text-[12.5px] font-bold px-4 py-[10px] rounded-[9px] disabled:opacity-60 hover:bg-navy-2 transition-colors">
+            {saving ? 'Creating…' : 'Create Facility'}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import { useAuth } from '../../store/auth';
+import GlobalSearch from './GlobalSearch';
 
 function getInitials(name: string | null): string {
   if (!name) return 'SA';
@@ -27,9 +28,7 @@ function SuperAdminTopbar() {
       </span>
 
       {/* Search */}
-      <div className="flex-1 max-w-[320px] bg-paper border border-line rounded-sm px-3 py-[7px] text-[11.5px] text-slate select-none cursor-text">
-        🔍 Search users, facilities, roles…
-      </div>
+      <GlobalSearch mode="superadmin" placeholder="Search users, facilities, roles…" />
 
       <div className="flex-1" />
 

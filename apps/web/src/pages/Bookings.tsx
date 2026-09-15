@@ -4,7 +4,10 @@ import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
+import Pagination from '../components/ui/Pagination';
 import adminBookingsService, { BookingRow } from '../services/adminBookingsService';
+
+const PAGE_SIZE = 25;
 
 const TABS = ['all', 'pending', 'confirmed', 'upcoming', 'completed', 'cancelled'];
 const TAB_LABELS: Record<string, string> = {
@@ -35,12 +38,13 @@ export default function Bookings() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (tab: string) => {
+  const load = useCallback(async (tab: string, p: number) => {
     setLoading(true);
     try {
-      const res = await adminBookingsService.listBookings(tab);
+      const res = await adminBookingsService.listBookings(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE);
       setBookings(res.items);
       setCounts(res.counts);
       setTotal(res.total);
@@ -49,7 +53,8 @@ export default function Bookings() {
     }
   }, []);
 
-  useEffect(() => { load(activeTab); }, [load, activeTab]);
+  useEffect(() => { setPage(1); }, [activeTab]);
+  useEffect(() => { load(activeTab, page); }, [load, activeTab, page]);
 
   const tabLabels = TABS.map(t => counts[t] != null ? `${TAB_LABELS[t]} (${counts[t]})` : TAB_LABELS[t]);
 
@@ -120,6 +125,7 @@ export default function Bookings() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
       </Panel>
     </Layout>
   );

@@ -289,6 +289,7 @@ def get_booking(
         **base.model_dump(by_alias=False),
         facility_name=shift.facility.name,
         specialty=shift.specialty,
+        shift_role=shift.role.value,
         pay_rate=float(shift.pay_rate),
         duration_hours=shift.duration_hours,
         staff_phone=staff.phone,

@@ -18,6 +18,7 @@ import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import userService, { DashboardResponse, ShiftItem } from '../../services/userService';
 import shiftService from '../../services/shiftService';
+import chatService from '../../services/chatService';
 import Toast, { ToastType } from '../../components/ui/Toast';
 import EmptyState from '../../components/ui/EmptyState';
 
@@ -145,9 +146,18 @@ function RecommendedShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id
 export default function DashboardScreen({ navigation }: Props) {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
   const showToast = (message: string, type: ToastType = 'error') =>
     setToast({ visible: true, message, type });
+
+  // Load unread message count from chat rooms
+  useEffect(() => {
+    chatService.listMyRooms().then((rooms) => {
+      const total = rooms.reduce((sum, r) => sum + r.unreadCount, 0);
+      setUnreadMessages(total);
+    }).catch(() => {});
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -162,6 +172,10 @@ export default function DashboardScreen({ navigation }: Props) {
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
   const { refreshing, onRefresh } = useRefresh(loadDashboard);
+
+  const handleOpenChat = () => {
+    navigation.navigate('Profile', { screen: 'MessagesList' });
+  };
 
   const handleApply = async (shiftId: number) => {
     try {
@@ -216,11 +230,25 @@ export default function DashboardScreen({ navigation }: Props) {
               <Text style={styles.userName}>{user?.fullName ?? ''}</Text>
             </View>
           </View>
-          <View style={styles.bellWrap}>
-            <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={() => navigation.navigate('Notifications')}>
-              <Text style={styles.bellIcon}>🔔</Text>
-            </TouchableOpacity>
-            {(dashboard?.unreadNotifications ?? 0) > 0 && <View style={styles.bellPing} />}
+          <View style={styles.headerIcons}>
+            {/* Messages icon */}
+            <View style={styles.bellWrap}>
+              <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={handleOpenChat}>
+                <Text style={styles.bellIcon}>💬</Text>
+              </TouchableOpacity>
+              {unreadMessages > 0 && (
+                <View style={styles.msgBadge}>
+                  <Text style={styles.msgBadgeText}>{unreadMessages > 9 ? '9+' : unreadMessages}</Text>
+                </View>
+              )}
+            </View>
+            {/* Notifications bell */}
+            <View style={styles.bellWrap}>
+              <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={() => navigation.navigate('Notifications')}>
+                <Text style={styles.bellIcon}>🔔</Text>
+              </TouchableOpacity>
+              {(dashboard?.unreadNotifications ?? 0) > 0 && <View style={styles.bellPing} />}
+            </View>
           </View>
         </View>
 
@@ -237,7 +265,7 @@ export default function DashboardScreen({ navigation }: Props) {
         {/* Urgent Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Urgent Shifts Near You</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
         {(dashboard?.urgentShifts?.length ?? 0) > 0 ? (
@@ -261,7 +289,7 @@ export default function DashboardScreen({ navigation }: Props) {
         {/* Recommended Shifts */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recommended for You</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Shifts')}><Text style={styles.sectionLink}>See all</Text></TouchableOpacity>
         </View>
 
         {(dashboard?.recommendedShifts?.length ?? 0) > 0 ? (
@@ -274,7 +302,7 @@ export default function DashboardScreen({ navigation }: Props) {
             title="No recommendations yet"
             subtitle="Complete your profile and set availability to get personalised shift suggestions."
             buttonLabel="Set Availability"
-            onPress={() => navigation.navigate('Calendar')}
+            onPress={() => navigation.getParent()?.navigate('Calendar')}
           />
         )}
 
@@ -309,6 +337,7 @@ const styles = StyleSheet.create({
   userAvatarInitial: { fontSize: 14, fontWeight: '800', color: '#0F3D5C' },
   greeting: { fontSize: 11, color: '#5C6B7A' },
   userName: { fontSize: 14.5, fontWeight: '800', color: '#14202E' },
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bellWrap: { position: 'relative' },
   bellBtn: {
     width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff',
@@ -319,6 +348,13 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 5, right: 6, width: 7, height: 7,
     borderRadius: 3.5, backgroundColor: '#C0392B', borderWidth: 1.5, borderColor: '#fff',
   },
+  msgBadge: {
+    position: 'absolute', top: -4, right: -4,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#C0392B', borderWidth: 1.5, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  msgBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 18, gap: 10, marginBottom: 16 },
   statCard: { width: '47.5%', backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE4EA', borderRadius: 12, padding: 13 },

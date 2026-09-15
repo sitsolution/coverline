@@ -7,6 +7,8 @@ import SettingsScreen from '../screens/staff/SettingsScreen';
 import HelpSupportScreen from '../screens/staff/HelpSupportScreen';
 import ChangePasswordScreen from '../screens/staff/ChangePasswordScreen';
 import DataSecurityScreen from '../screens/staff/DataSecurityScreen';
+import ChatScreen from '../screens/staff/ChatScreen';
+import MessagesListScreen from '../screens/staff/MessagesListScreen';
 
 export type ProfileStackParamList = {
   ProfileMain: undefined;
@@ -16,6 +18,8 @@ export type ProfileStackParamList = {
   HelpSupport: undefined;
   ChangePassword: undefined;
   DataSecurity: undefined;
+  MessagesList: undefined;
+  Chat: { roomKey: string; adminName: string };
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -30,6 +34,8 @@ export default function ProfileStackNavigator() {
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="DataSecurity" component={DataSecurityScreen} />
+      <Stack.Screen name="MessagesList" component={MessagesListScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );
 }

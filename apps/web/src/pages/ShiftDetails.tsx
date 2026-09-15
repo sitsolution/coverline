@@ -8,6 +8,17 @@ import { apiError } from '../utils/apiError';
 
 type BadgeVariant = 'success' | 'warning' | 'urgent' | 'neutral' | 'info';
 
+function roleLabel(role: string): string {
+  const map: Record<string, string> = {
+    doctor: 'Doctor',
+    nurse: 'Nurse',
+    ot_tech: 'OT Tech',
+    housekeeping: 'Housekeeping',
+    facility_admin: 'Admin',
+  };
+  return map[role] ?? role;
+}
+
 function statusVariant(status: string): BadgeVariant {
   switch (status) {
     case 'open': return 'urgent';
@@ -241,7 +252,7 @@ export default function ShiftDetails() {
               <table className="adm-table">
                 <thead>
                   <tr>
-                    <th>Doctor</th>
+                    <th>{roleLabel(shift.role)}</th>
                     <th>Specialty</th>
                     <th>Rating</th>
                     <th>Applied</th>
@@ -263,13 +274,17 @@ export default function ShiftDetails() {
                       <td><Badge label={a.status} variant={a.status === 'confirmed' ? 'success' : a.status === 'rejected' || a.status === 'cancelled' ? 'urgent' : 'warning'} /></td>
                       <td className="text-[12px]">
                         <Link to={`/staff/${a.staffId}`} className="text-navy-2 font-semibold hover:underline">Profile</Link>
-                        {a.status === 'pending' && (
+                        {a.status === 'pending' && !['completed', 'cancelled'].includes(shift.status) && (
                           <>
-                            {' · '}
-                            <span
-                              className="text-navy-2 font-semibold cursor-pointer hover:underline"
-                              onClick={() => handleAssign(a)}
-                            >Accept</span>
+                            {shift.slotsFilled < shift.slots && (
+                              <>
+                                {' · '}
+                                <span
+                                  className="text-navy-2 font-semibold cursor-pointer hover:underline"
+                                  onClick={() => handleAssign(a)}
+                                >Accept</span>
+                              </>
+                            )}
                             {' · '}
                             <span
                               className="text-urgent font-semibold cursor-pointer hover:underline"

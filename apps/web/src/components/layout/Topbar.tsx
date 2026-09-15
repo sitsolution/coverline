@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 import { api } from '../../services/api';
+import GlobalSearch from './GlobalSearch';
 
 type Props = { facility?: string };
 
@@ -34,9 +35,7 @@ export default function Topbar({ facility = '—' }: Props) {
       <span className="font-bold text-[13px] text-ink">{facility}</span>
 
       {/* Search */}
-      <div className="flex-1 max-w-[320px] bg-paper border border-line rounded-sm px-3 py-[7px] text-[11.5px] text-slate-2 select-none cursor-text">
-        🔍 Search…
-      </div>
+      <GlobalSearch mode="admin" />
 
       <div className="flex-1" />
 
