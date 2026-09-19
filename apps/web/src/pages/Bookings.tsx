@@ -6,6 +6,8 @@ import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
 import Pagination from '../components/ui/Pagination';
 import adminBookingsService, { BookingRow } from '../services/adminBookingsService';
+import SortTh from '../components/ui/SortTh';
+import ChatDrawer from '../components/ChatDrawer';
 
 const PAGE_SIZE = 25;
 
@@ -37,21 +39,34 @@ export default function Bookings() {
   const [activeTab, setActiveTab] = useState('all');
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [chatTarget, setChatTarget] = useState<{ staffId: number; staffName: string } | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('booked_on');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const load = useCallback(async (tab: string, p: number) => {
     setLoading(true);
     try {
-      const res = await adminBookingsService.listBookings(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE);
+      const res = await adminBookingsService.listBookings(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE, sortBy, sortOrder);
       setBookings(res.items);
       setCounts(res.counts);
       setTotal(res.total);
     } catch {} finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortOrder]);
 
   useEffect(() => { setPage(1); }, [activeTab]);
   useEffect(() => { load(activeTab, page); }, [load, activeTab, page]);
@@ -89,10 +104,10 @@ export default function Bookings() {
             <thead>
               <tr>
                 <th>Booking ID</th>
-                <th>Shift</th>
-                <th>Staff</th>
-                <th>Booked On</th>
-                <th>Status</th>
+                <SortTh label="Shift" column="shift" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Staff" column="staff" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Booked On" column="booked_on" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Actions</th>
               </tr>
             </thead>
@@ -113,10 +128,13 @@ export default function Bookings() {
                       className="text-navy-2 font-semibold cursor-pointer hover:underline"
                       onClick={() => navigate(`/bookings/${r.id}`)}
                     >View</span>
-                    {['confirmed', 'upcoming', 'pending'].includes(r.status) && r.staffEmail && (
+                    {['confirmed', 'upcoming', 'pending'].includes(r.status) && r.staffId && (
                       <>
                         {' · '}
-                        <a href={`mailto:${r.staffEmail}`} className="text-navy-2 font-semibold hover:underline">Contact</a>
+                        <button
+                          onClick={() => setChatTarget({ staffId: r.staffId, staffName: r.staffName })}
+                          className="text-navy-2 font-semibold hover:underline"
+                        >Contact</button>
                       </>
                     )}
                   </td>
@@ -127,6 +145,14 @@ export default function Bookings() {
         </div>
         <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
       </Panel>
+
+      {chatTarget && (
+        <ChatDrawer
+          staffId={chatTarget.staffId}
+          staffName={chatTarget.staffName}
+          onClose={() => setChatTarget(null)}
+        />
+      )}
     </Layout>
   );
 }

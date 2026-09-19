@@ -25,7 +25,7 @@ const notificationService = {
   listNotifications: async (
     tab: 'all' | 'unread' | 'shift_alerts' | 'payments' = 'all',
     limit = 30,
-    offset = 0
+    offset = 0,
   ): Promise<NotificationListResponse> => {
     const { data } = await api.get('/notifications', { params: { tab, limit, offset } });
     return data;

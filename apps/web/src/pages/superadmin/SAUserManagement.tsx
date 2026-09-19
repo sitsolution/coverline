@@ -5,6 +5,7 @@ import Panel from '../../components/ui/Panel';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import superAdminService, { SAFacility, SAUser } from '../../services/superAdminService';
+import SortTh from '../../components/ui/SortTh';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,19 @@ export default function SAUserManagement() {
   const [facilities, setFacilities]     = useState<SAFacility[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<SAUser | null>(null);
   const [deleting, setDeleting]         = useState(false);
+  const [sortBy, setSortBy]             = useState('created_at');
+  const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>('desc');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -60,10 +73,10 @@ export default function SAUserManagement() {
     superAdminService.getFacilities({ limit: 200 }).then((r) => setFacilities(r.items)).catch(() => {});
   }, []);
 
-  const fetchUsers = (p: number, q: string, role: string, status: string, verif: string, facility: string) => {
+  const fetchUsers = (p: number, q: string, role: string, status: string, verif: string, facility: string, sb = sortBy, so = sortOrder) => {
     setLoading(true);
     setError('');
-    const params: Record<string, unknown> = { limit: LIMIT, offset: (p - 1) * LIMIT };
+    const params: Record<string, unknown> = { limit: LIMIT, offset: (p - 1) * LIMIT, sortBy: sb, sortOrder: so };
     if (q)       params.search      = q;
     if (role)    params.role        = role;
     if (status)  params.is_active   = status === 'active';
@@ -77,9 +90,9 @@ export default function SAUserManagement() {
   };
 
   useEffect(() => {
-    fetchUsers(page, search, roleFilter, statusFilter, verifFilter, facilityFilter);
+    fetchUsers(page, search, roleFilter, statusFilter, verifFilter, facilityFilter, sortBy, sortOrder);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, sortBy, sortOrder]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -178,10 +191,10 @@ export default function SAUserManagement() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Role</th>
+                <SortTh label="Name" column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Role" column="role" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Facility</th>
-                <th>Status</th>
+                <SortTh label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Verification</th>
                 <th>Actions</th>
               </tr>

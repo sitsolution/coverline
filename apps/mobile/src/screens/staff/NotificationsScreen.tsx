@@ -28,8 +28,11 @@ type Props = { navigation: NotificationsNavProp };
 
 type TabKey = 'All' | 'Unread' | 'Shift Alerts' | 'Payments';
 const TABS: TabKey[] = ['All', 'Unread', 'Shift Alerts', 'Payments'];
-const TAB_API: Record<TabKey, 'all' | 'unread' | 'shift_alerts' | 'payments'> = {
-  'All': 'all', 'Unread': 'unread', 'Shift Alerts': 'shift_alerts', 'Payments': 'payments',
+const TAB_API: Record<TabKey, { tab: string }> = {
+  'All':          { tab: 'all' },
+  'Unread':       { tab: 'unread' },
+  'Shift Alerts': { tab: 'shift_alerts' },
+  'Payments':     { tab: 'payments' },
 };
 
 function categoryIcon(category: string): string {
@@ -80,7 +83,7 @@ export default function NotificationsScreen({ navigation }: Props) {
   const load = useCallback(async (tab: TabKey) => {
     setLoading(true);
     try {
-      const res = await notificationService.listNotifications(TAB_API[tab]);
+      const res = await notificationService.listNotifications(TAB_API[tab].tab as 'all' | 'unread' | 'shift_alerts' | 'payments');
       setNotifs(res.items);
     } catch {
       setToast({ visible: true, message: 'Failed to load notifications.', type: 'error' });
@@ -103,7 +106,12 @@ export default function NotificationsScreen({ navigation }: Props) {
   const handlePress = async (item: NotificationOut) => {
     if (!item.isRead) handleMarkRead(item.id);
 
-    if (item.entityId && (item.category === 'shift_alert' || item.category === 'application')) {
+    if (item.category === 'shift_alert' && item.entityId) {
+      navigation.navigate('Shifts', {
+        screen: 'ShiftDetails',
+        params: { shiftId: item.entityId },
+      });
+    } else if (item.category === 'application' && item.entityId) {
       navigation.navigate('Shifts', {
         screen: 'ShiftDetails',
         params: { shiftId: item.entityId },
@@ -111,14 +119,13 @@ export default function NotificationsScreen({ navigation }: Props) {
     } else if (item.category === 'message' && item.entityId) {
       try {
         const room = await chatService.getRoomById(item.entityId);
-        navigation.navigate('Profile', {
-          screen: 'Chat',
-          params: { roomKey: room.roomKey, adminName: 'Facility Admin' },
-        });
+        navigation.navigate('Chat', { roomKey: room.roomKey, adminName: room.adminName });
       } catch {
         setToast({ visible: true, message: 'Could not open chat.', type: 'error' });
       }
-    } else if (item.category === 'payment' || item.category === 'document') {
+    } else if (item.category === 'payment') {
+      navigation.navigate('Profile', { screen: 'Earnings' });
+    } else if (item.category === 'document') {
       setToast({ visible: true, message: 'No further action needed for this notification.', type: 'info' });
     }
   };

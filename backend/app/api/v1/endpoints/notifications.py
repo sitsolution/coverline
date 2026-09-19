@@ -15,9 +15,8 @@ from app.schemas.notification import NotificationListResponse, NotificationOut
 
 router = APIRouter()
 
-#: Presets matching the mobile Notifications screen's tabs. Its "Shift Alerts"
-#: deliberately covers application updates too, which is why this is not a
-#: one-tab-per-category map.
+#: Presets matching the mobile Notifications screen's tabs.
+#: On mobile, "Shift Alerts" bundles shift matches + application updates (no separate Applications tab).
 TAB_CATEGORIES = {
     "all": None,
     "unread": None,

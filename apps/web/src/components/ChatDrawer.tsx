@@ -36,23 +36,32 @@ export default function ChatDrawer({ staffId, staffName, onClose }: Props) {
 
   // ── Step 1: create/get room then load history ───────────────────────────────
   useEffect(() => {
+    let cancelled = false;
+
     setLoading(true);
     setLoadError('');
 
     chatService
       .getOrCreateRoom(staffId)
       .then((room) => {
+        if (cancelled) return null;
         setRoomKey(room.roomKey);
         return chatService.getHistory(room.roomKey);
       })
       .then((history) => {
+        if (cancelled || !history) return;
         setMessages(history.messages);
       })
       .catch((err) => {
+        if (cancelled) return;
         const detail = err?.response?.data?.detail ?? err?.message ?? 'Failed to load chat.';
         setLoadError(detail);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [staffId]);
 
   // ── Step 2: open WebSocket once roomKey is known ────────────────────────────

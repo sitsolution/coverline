@@ -42,6 +42,8 @@ export interface BookingDetail extends BookingRow {
   staffSpecialty?: string;
   timeline: TimelineEntry[];
   messages: BookingMessageOut[];
+  paymentId?: number;
+  paymentStatus?: string;
 }
 
 export interface BookingListResponse {
@@ -54,9 +56,9 @@ export interface BookingListResponse {
 }
 
 const adminBookingsService = {
-  listBookings: async (tab = 'all', search?: string, limit = 25, offset = 0): Promise<BookingListResponse> => {
+  listBookings: async (tab = 'all', search?: string, limit = 25, offset = 0, sortBy?: string, sortOrder?: string): Promise<BookingListResponse> => {
     const { data } = await api.get('/admin/bookings', {
-      params: { tab, search, limit, offset },
+      params: { tab, search, limit, offset, sortBy, sortOrder },
     });
     return data;
   },
@@ -78,6 +80,11 @@ const adminBookingsService = {
 
   cancelBooking: async (id: number, reason?: string): Promise<BookingDetail> => {
     const { data } = await api.post(`/admin/bookings/${id}/cancel`, { reason });
+    return data;
+  },
+
+  markPaymentDone: async (id: number): Promise<BookingDetail> => {
+    const { data } = await api.post(`/admin/bookings/${id}/payment-done`);
     return data;
   },
 

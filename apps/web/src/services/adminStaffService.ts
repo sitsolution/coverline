@@ -102,6 +102,8 @@ export interface StaffFilters {
   connectedOnly?: boolean;
   limit?: number;
   offset?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 const adminStaffService = {

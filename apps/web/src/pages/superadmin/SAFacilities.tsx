@@ -4,6 +4,7 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import Panel from '../../components/ui/Panel';
 import Badge from '../../components/ui/Badge';
 import superAdminService, { SAFacility } from '../../services/superAdminService';
+import SortTh from '../../components/ui/SortTh';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -182,11 +183,22 @@ export default function SAFacilities() {
   const [typeFilter, setTypeFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [showModal, setShowModal]   = useState(false);
+  const [sortBy, setSortBy]         = useState('created_at');
+  const [sortOrder, setSortOrder]   = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+  };
 
   const fetchFacilities = () => {
     setLoading(true);
     setError('');
-    const params: Record<string, unknown> = {};
+    const params: Record<string, unknown> = { sortBy, sortOrder };
     if (search)     params.search = search;
     if (typeFilter) params.facility_type = typeFilter;
     if (cityFilter) params.city = cityFilter;
@@ -203,7 +215,7 @@ export default function SAFacilities() {
   useEffect(() => {
     fetchFacilities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, typeFilter, cityFilter]);
+  }, [search, typeFilter, cityFilter, sortBy, sortOrder]);
 
   const handleCreated = () => {
     setShowModal(false);
@@ -276,9 +288,9 @@ export default function SAFacilities() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Facility</th>
+                <SortTh label="Facility" column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Type</th>
-                <th>City</th>
+                <SortTh label="City" column="city" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Admin Contact</th>
                 <th>Staff Count</th>
                 <th>Status</th>

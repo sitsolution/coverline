@@ -97,6 +97,8 @@ def list_staff(
     ),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(name|rating|shifts)$"),
+    sort_order: Optional[str] = Query("asc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     """Staff Database.
 
@@ -149,7 +151,12 @@ def list_staff(
     items: List[StaffRow] = []
     for user, profile in rows:
         is_available = available.get(user.id, False)
-        verification_status = verified.get(user.id, "Pending")
+        # user.is_verified is the authoritative flag (matches what StaffProfile shows).
+        # Fall back to document-based status only when the account is not yet verified.
+        if user.is_verified:
+            verification_status = "Verified"
+        else:
+            verification_status = verified.get(user.id, "Pending")
 
         # Availability and verification are aggregates over other tables, so
         # they filter here rather than in SQL.
@@ -174,6 +181,15 @@ def list_staff(
                 shifts_completed=profile.shifts_completed if profile else 0,
             )
         )
+
+    # Sort in Python (availability/verification are post-SQL filters, so SQL ORDER BY isn't reliable).
+    reverse = sort_order == "desc"
+    if sort_by == "rating":
+        items.sort(key=lambda x: x.rating, reverse=reverse)
+    elif sort_by == "shifts":
+        items.sort(key=lambda x: x.shifts_completed, reverse=reverse)
+    else:
+        items.sort(key=lambda x: x.name.lower(), reverse=reverse)
 
     total = len(items)
     return StaffListResponse(

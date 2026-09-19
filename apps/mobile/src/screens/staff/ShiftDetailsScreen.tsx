@@ -134,6 +134,7 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
 
   const isApplied = shift.applicationStatus != null;
   const isConfirmed = shift.applicationStatus === 'confirmed';
+  const isCancelled = shift.status === 'cancelled';
   const roleLabel = ROLE_LABELS[shift.role] ?? shift.role;
 
   return (
@@ -241,7 +242,11 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
           <Text style={styles.footerPayLabel}>Pay rate</Text>
           <Text style={styles.footerPay}>₹{shift.payRate.toLocaleString('en-IN')}</Text>
         </View>
-        {isConfirmed ? (
+        {isCancelled ? (
+          <View style={[styles.applyBtn, { backgroundColor: '#8697A6' }]}>
+            <Text style={styles.applyBtnText}>Shift Cancelled</Text>
+          </View>
+        ) : isConfirmed ? (
           <View style={[styles.applyBtn, { backgroundColor: '#1F8A5F' }]}>
             <Text style={styles.applyBtnText}>Confirmed ✓</Text>
           </View>

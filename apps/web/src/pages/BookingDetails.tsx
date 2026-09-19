@@ -89,6 +89,20 @@ export default function BookingDetails() {
     }
   };
 
+  const handlePaymentDone = async () => {
+    if (!id || actionLoading) return;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      const updated = await adminBookingsService.markPaymentDone(parseInt(id));
+      setBooking(updated);
+    } catch (err) {
+      setActionError(apiError(err, 'Failed to mark payment as done.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCancel = async () => {
     if (!id || actionLoading) return;
     setActionLoading(true);
@@ -208,6 +222,20 @@ export default function BookingDetails() {
               >
                 {actionLoading ? 'Updating…' : 'Mark as Completed'}
               </button>
+            )}
+            {booking.status === 'completed' && booking.paymentStatus === 'pending' && (
+              <button
+                onClick={handlePaymentDone}
+                disabled={actionLoading}
+                className="w-full bg-success text-white text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 disabled:opacity-60"
+              >
+                {actionLoading ? 'Processing…' : 'Payment Done'}
+              </button>
+            )}
+            {booking.status === 'completed' && booking.paymentStatus && booking.paymentStatus !== 'pending' && (
+              <div className="w-full text-center text-[12px] text-success font-semibold py-[10px] bg-[#E3F5EC] rounded-[10px] mb-2">
+                ✓ Payment {booking.paymentStatus === 'processing' ? 'Received by Staff' : 'Sent'}
+              </div>
             )}
             {['pending', 'confirmed', 'upcoming'].includes(booking.status) && !showCancelPanel && (
               <button

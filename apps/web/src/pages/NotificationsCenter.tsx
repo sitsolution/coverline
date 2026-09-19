@@ -7,14 +7,17 @@ import ChatDrawer from '../components/ChatDrawer';
 import chatService from '../services/chatService';
 import { api } from '../services/api';
 
-const TABS = ['All', 'Unread', 'Shift Alerts', 'Applications', 'System'];
+const TABS = ['All', 'Unread', 'Shift Alerts', 'Applications', 'Payments', 'System'];
 
-// Tabs that map to the backend `tab` param vs `categories` param
+// Tabs that map to the backend `tab` param vs `categories` param.
+// shift_alerts tab bundles shift_alert + application on mobile, so admin uses
+// the `categories` param directly for finer-grained filtering.
 const TAB_PARAM: Record<string, { tab?: string; categories?: string }> = {
   'All':          { tab: 'all' },
   'Unread':       { tab: 'unread' },
-  'Shift Alerts': { tab: 'shift_alerts' },
+  'Shift Alerts': { categories: 'shift_alert' },
   'Applications': { categories: 'application' },
+  'Payments':     { categories: 'payment' },
   'System':       { categories: 'system' },
 };
 
@@ -77,8 +80,10 @@ export default function NotificationsCenter() {
 
   const handlePress = async (n: NotificationOut) => {
     if (!n.isRead) handleMarkRead(n.id);
-    if ((n.category === 'shift_alert' || n.category === 'application') && n.entityId) {
+    if (n.category === 'shift_alert' && n.entityId) {
       navigate(`/shifts/${n.entityId}`);
+    } else if (n.category === 'application' && n.entityId) {
+      navigate(`/bookings/${n.entityId}`);
     } else if (n.category === 'message' && n.entityId) {
       try {
         const room = await chatService.getRoomById(n.entityId);

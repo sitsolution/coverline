@@ -15,6 +15,8 @@ class ApplicationOut(CamelModel):
     cancellation_reason: Optional[str] = None
     can_cancel: bool
     shift: ShiftListItem
+    payment_id: Optional[int] = None
+    payment_status: Optional[str] = None
 
 
 class ApplicationListResponse(CamelModel):

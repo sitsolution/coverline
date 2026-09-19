@@ -11,11 +11,19 @@ import {
 import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
+import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import userService, { ProfileOut } from '../../services/userService';
 import { useFocusEffect } from '@react-navigation/native';
 
-type Props = { navigation: NativeStackNavigationProp<ProfileStackParamList, 'ProfileMain'> };
+type Props = {
+  navigation: CompositeNavigationProp<
+    NativeStackNavigationProp<ProfileStackParamList, 'ProfileMain'>,
+    BottomTabNavigationProp<StaffTabParamList>
+  >;
+};
 
 function InfoRow({ icon, title, sub, isLast }: { icon: string; title: string; sub: string; isLast?: boolean }) {
   return (
@@ -87,7 +95,9 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text style={styles.avatarLgText}>{user ? getInitials(user.fullName) : '?'}</Text>
           </View>
           <Text style={styles.profileName}>{user?.fullName ?? ''}</Text>
-          <Text style={styles.profileTitle}>{p?.specialty ?? roleLabel(user?.role ?? '')}</Text>
+          <Text style={styles.profileTitle}>
+            {p?.specialty ?? roleLabel(user?.role ?? '')}{p?.experience ? ` · ${p.experience}` : ''}
+          </Text>
           {profile?.location ? (
             <Text style={styles.profileLoc}>📍 {profile.location}</Text>
           ) : p?.preferredLocations && p.preferredLocations.length > 0 ? (
@@ -115,6 +125,22 @@ export default function ProfileScreen({ navigation }: Props) {
               {p.qualifications ? <InfoRow icon="🎓" title={p.qualifications} sub="Qualifications" isLast /> : null}
             </View>
 
+            <Text style={styles.sectionTitle}>Documents &amp; Certificates</Text>
+            <TouchableOpacity
+              style={styles.docsRow}
+              activeOpacity={0.8}
+              onPress={() => navigation.getParent()?.navigate('Docs')}
+            >
+              <View style={styles.docsRowLeft}>
+                <View style={styles.infoAvatar}><Text style={styles.infoAvatarText}>📁</Text></View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoTitle}>View / Upload Documents</Text>
+                  <Text style={styles.infoSub}>{p.credentialLabel}, certifications, ID proof &amp; more</Text>
+                </View>
+              </View>
+              <Text style={styles.docsArrow}>›</Text>
+            </TouchableOpacity>
+
             <Text style={styles.sectionTitle}>Preferences</Text>
             <View style={styles.rowList}>
               {p.preferredLocations.length > 0 && (
@@ -138,6 +164,10 @@ export default function ProfileScreen({ navigation }: Props) {
 
         <TouchableOpacity style={styles.earningsBtn} onPress={() => navigation.navigate('MyActivity')} activeOpacity={0.85}>
           <Text style={styles.earningsBtnText}>📋  My Activity</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.earningsBtn, { backgroundColor: '#1F8A5F', marginTop: 10 }]} onPress={() => navigation.navigate('Earnings')} activeOpacity={0.85}>
+          <Text style={styles.earningsBtnText}>💰  My Earnings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate('Settings')} activeOpacity={0.85}>
@@ -175,6 +205,12 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1 },
   infoTitle: { fontSize: 12.5, fontWeight: '700', color: '#14202E' },
   infoSub: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },
+  docsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 11, borderBottomWidth: 0,
+  },
+  docsRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  docsArrow: { fontSize: 20, color: '#175E86', fontWeight: '600', paddingLeft: 8 },
   earningsBtn: { backgroundColor: '#0F3D5C', borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginTop: 18 },
   earningsBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   settingsBtn: { backgroundColor: '#EAF2F8', borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginTop: 10 },

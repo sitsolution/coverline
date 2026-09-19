@@ -10,6 +10,8 @@ export interface ApplicationOut {
   cancellationReason: string | null;
   canCancel: boolean;
   shift: ShiftItem;
+  paymentId: number | null;
+  paymentStatus: string | null;
 }
 
 export interface ApplicationCounts {

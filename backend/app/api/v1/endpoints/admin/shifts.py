@@ -41,6 +41,7 @@ from .common import (
     as_aware,
     assigned_staff_for,
     csv_or_none,
+    now_ist,
     pending_counts_for,
     shift_display_status,
     shift_reference,
@@ -121,6 +122,8 @@ def list_shifts(
     date_to: Optional[datetime] = Query(None, alias="dateTo"),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(date|status|specialty|location)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     """Shift Management table, with its search box and three filter chips."""
     db = admin.db
@@ -182,7 +185,16 @@ def list_shifts(
             query = query.filter(~Shift.id.in_(pending_shift_ids))
 
     total = query.order_by(None).count()
-    shifts = query.order_by(Shift.start_time.desc()).offset(offset).limit(limit).all()
+    desc = sort_order == "desc"
+    if sort_by == "status":
+        order_col = Shift.status.desc() if desc else Shift.status.asc()
+    elif sort_by == "specialty":
+        order_col = Shift.specialty.desc() if desc else Shift.specialty.asc()
+    elif sort_by == "location":
+        order_col = Facility.name.desc() if desc else Facility.name.asc()
+    else:
+        order_col = Shift.start_time.desc() if desc else Shift.start_time.asc()
+    shifts = query.order_by(order_col).offset(offset).limit(limit).all()
 
     shift_ids = [s.id for s in shifts]
     pending = pending_counts_for(db, shift_ids)
@@ -248,7 +260,7 @@ def create_shift(
             detail="A published shift must start in the future",
         )
 
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     shift = Shift(
         facility_id=facility_id,
         role=payload.role,
@@ -338,6 +350,7 @@ def _applicants(db: Session, shift: Shift) -> List[ApplicantRow]:
             shifts_completed=profile.shifts_completed if profile else 0,
             is_verified=user.is_verified,
             applied_at=application.applied_at,
+            responded_at=application.responded_at,
             status=application.status.value,
         )
         for application, user, profile in rows
@@ -363,11 +376,11 @@ def _timeline(db: Session, shift: Shift, applicants: List[ApplicantRow]) -> List
     if shift.status == ShiftStatus.cancelled:
         entries.append(TimelineEntry(label="Cancelled", at=shift.cancelled_at, done=True))
     elif confirmed:
-        entries.append(TimelineEntry(label="Staff assigned", at=None, done=True))
+        entries.append(TimelineEntry(label="Staff assigned", at=confirmed[0].responded_at, done=True))
         entries.append(
             TimelineEntry(
                 label="Shift completed",
-                at=None,
+                at=shift.end_time if shift.status == ShiftStatus.completed else None,
                 done=shift.status == ShiftStatus.completed,
             )
         )
@@ -470,14 +483,14 @@ def publish_shift(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Only a draft can be published"
         )
-    if as_aware(shift.start_time) <= datetime.now(timezone.utc):
+    if shift.start_time <= now_ist():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This shift's start time has already passed",
         )
 
     shift.status = ShiftStatus.open
-    shift.published_at = datetime.now(timezone.utc)
+    shift.published_at = now_ist()
     admin.db.commit()
     admin.db.refresh(shift)
 
@@ -560,7 +573,7 @@ def assign_applicant(
         )
 
     application.status = ApplicationStatus.confirmed
-    application.responded_at = datetime.now(timezone.utc)
+    application.responded_at = now_ist()
     shift.slots_filled += 1
     if shift.slots_filled >= shift.slots:
         shift.status = ShiftStatus.filled
@@ -572,8 +585,8 @@ def assign_applicant(
         category=NotificationCategory.application,
         title="Application confirmed",
         body=f"{shift.facility.name} · {shift.specialty}",
-        entity_type="application",
-        entity_id=application.id,
+        entity_type="shift",
+        entity_id=shift.id,
         commit=False,
     )
     log_activity(
@@ -614,7 +627,7 @@ def reject_applicant(
         )
 
     application.status = ApplicationStatus.rejected
-    application.responded_at = datetime.now(timezone.utc)
+    application.responded_at = now_ist()
     application.cancellation_reason = payload.reason
 
     notify(
@@ -623,8 +636,8 @@ def reject_applicant(
         category=NotificationCategory.application,
         title="Application not successful",
         body=f"{shift.facility.name} · {shift.specialty}",
-        entity_type="application",
-        entity_id=application.id,
+        entity_type="shift",
+        entity_id=shift.id,
         commit=False,
     )
     db.commit()
@@ -651,6 +664,11 @@ def cancel_shift(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="A completed shift cannot be cancelled"
         )
+    if shift.start_time <= now_ist():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This shift has already started and cannot be cancelled",
+        )
 
     affected = (
         db.query(Application)
@@ -662,7 +680,7 @@ def cancel_shift(
     )
     for application in affected:
         application.status = ApplicationStatus.cancelled
-        application.cancelled_at = datetime.now(timezone.utc)
+        application.cancelled_at = now_ist()
         application.cancellation_reason = payload.reason or "Shift cancelled by the facility"
         notify(
             db,
@@ -676,7 +694,7 @@ def cancel_shift(
         )
 
     shift.status = ShiftStatus.cancelled
-    shift.cancelled_at = datetime.now(timezone.utc)
+    shift.cancelled_at = now_ist()
     shift.cancellation_reason = payload.reason
     shift.slots_filled = 0
     db.commit()
@@ -699,6 +717,10 @@ def complete_shift(
     if shift.status == ShiftStatus.completed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="This shift is already completed"
+        )
+    if as_aware(shift.end_time) > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="This shift has not finished yet"
         )
     confirmed = (
         db.query(Application)

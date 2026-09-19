@@ -59,6 +59,8 @@ def list_activity(
     category: Optional[str] = Query(None),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(timestamp|actor)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     """Platform-wide activity log. No facility scope — super admin sees everything."""
     query = db.query(ActivityLog)
@@ -69,9 +71,14 @@ def list_activity(
             query = query.filter(ActivityLog.entity_type == entity)
 
     total = query.count()
+    desc = sort_order == "desc"
+    if sort_by == "actor":
+        order_col = ActivityLog.actor_name.desc() if desc else ActivityLog.actor_name.asc()
+    else:
+        order_col = ActivityLog.created_at.desc() if desc else ActivityLog.created_at.asc()
     logs = (
         query
-        .order_by(ActivityLog.created_at.desc())
+        .order_by(order_col)
         .offset(offset)
         .limit(limit)
         .all()

@@ -206,7 +206,7 @@ export default function ShiftDetails() {
                 {actionLoading ? 'Updating…' : 'Mark Complete'}
               </button>
             )}
-            {['open', 'pending', 'filled'].includes(shift.status) && !showCancelPanel && (
+            {['open', 'pending', 'filled'].includes(shift.status) && !showCancelPanel && new Date(shift.startTime) > new Date() && (
               <button
                 onClick={() => setShowCancelPanel(true)}
                 disabled={actionLoading}
@@ -271,7 +271,7 @@ export default function ShiftDetails() {
                       <td>{a.specialty ?? '—'}</td>
                       <td>{a.rating.toFixed(1)}★</td>
                       <td className="text-slate">{timeAgo(a.appliedAt)}</td>
-                      <td><Badge label={a.status} variant={a.status === 'confirmed' ? 'success' : a.status === 'rejected' || a.status === 'cancelled' ? 'urgent' : 'warning'} /></td>
+                      <td><Badge label={a.status} variant={a.status === 'confirmed' ? 'success' : a.status === 'completed' ? 'neutral' : a.status === 'rejected' || a.status === 'cancelled' ? 'urgent' : 'warning'} /></td>
                       <td className="text-[12px]">
                         <Link to={`/staff/${a.staffId}`} className="text-navy-2 font-semibold hover:underline">Profile</Link>
                         {a.status === 'pending' && !['completed', 'cancelled'].includes(shift.status) && (

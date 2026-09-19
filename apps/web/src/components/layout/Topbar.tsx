@@ -24,9 +24,16 @@ export default function Topbar({ facility = '—' }: Props) {
 
   useEffect(() => {
     if (!accessToken) return;
-    api.get('/notifications', { params: { filter: 'unread', limit: 1 } })
-      .then(res => setUnread(res.data?.total ?? 0))
-      .catch(() => {});
+
+    const fetchCount = () => {
+      api.get('/notifications/unread-count')
+        .then(res => setUnread(res.data?.count ?? 0))
+        .catch(() => {});
+    };
+
+    fetchCount();
+    const timer = setInterval(fetchCount, 30_000);
+    return () => clearInterval(timer);
   }, [accessToken]);
 
   return (

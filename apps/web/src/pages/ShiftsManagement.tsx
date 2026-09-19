@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import Pagination from '../components/ui/Pagination';
 import adminShiftsService, { AdminShiftRow } from '../services/adminShiftsService';
+import SortTh from '../components/ui/SortTh';
 
 const PAGE_SIZE = 25;
 
@@ -44,6 +45,18 @@ export default function ShiftsManagement() {
   const [status, setStatus] = useState('');
   const [location, setLocation] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const load = useCallback(async (p = page) => {
     setLoading(true);
@@ -56,6 +69,8 @@ export default function ShiftsManagement() {
         specialty: specialty || undefined,
         limit: PAGE_SIZE,
         offset: (p - 1) * PAGE_SIZE,
+        sortBy,
+        sortOrder,
       });
       setShifts(res.items);
       setTotal(res.total);
@@ -64,7 +79,7 @@ export default function ShiftsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, location, specialty, page]);
+  }, [search, status, location, specialty, page, sortBy, sortOrder]);
 
   // reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [search, status, location, specialty]);
@@ -119,6 +134,13 @@ export default function ShiftsManagement() {
           <option value="">Specialty ▾</option>
           {['Emergency Medicine', 'General Medicine', 'Pediatrics', 'Anaesthesia'].map((o) => <option key={o}>{o}</option>)}
         </select>
+        <input
+          type="text"
+          placeholder="Location…"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          className="px-3 py-[7px] border-[1.4px] border-line rounded-[9px] text-[11.5px] text-ink outline-none focus:border-navy-2 bg-white min-w-[140px]"
+        />
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setStatus(''); setLocation(''); setSpecialty(''); }}
@@ -135,11 +157,11 @@ export default function ShiftsManagement() {
             <thead>
               <tr>
                 <th>Shift ID</th>
-                <th>Date</th>
+                <SortTh label="Date" column="date" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Time</th>
-                <th>Location</th>
-                <th>Specialty</th>
-                <th>Status</th>
+                <SortTh label="Location" column="location" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Specialty" column="specialty" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Assigned Staff</th>
                 <th>Actions</th>
               </tr>

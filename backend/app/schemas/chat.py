@@ -20,9 +20,11 @@ class ChatRoomOut(CamelModel):
     admin_id: int
     staff_id: int
     admin_name: str
+    facility_name: Optional[str]
     staff_name: str
     staff_initials: str
     last_message_at: Optional[datetime]
+    last_message_body: Optional[str]
     unread_count: int
 
 

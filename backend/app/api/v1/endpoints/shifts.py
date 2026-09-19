@@ -1,4 +1,10 @@
 from datetime import datetime, timedelta, timezone
+
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _now_ist():
+    return datetime.now(_IST).replace(tzinfo=None)
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -133,7 +139,7 @@ def list_shifts(
     query = query.filter(
         Shift.status == ShiftStatus.open,
         Shift.is_visible.is_(True),
-        Shift.start_time > datetime.now(timezone.utc),
+        Shift.start_time > _now_ist(),
         Shift.slots_filled < Shift.slots,
     )
 
@@ -171,7 +177,7 @@ def recommended_shifts(
         Shift.role == current_user.role,
         Shift.status == ShiftStatus.open,
         Shift.is_visible.is_(True),
-        Shift.start_time > datetime.now(timezone.utc),
+        Shift.start_time > _now_ist(),
         Shift.slots_filled < Shift.slots,
     )
 
@@ -314,7 +320,7 @@ def apply_to_shift(
         )
     if not shift.has_open_slots:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This shift is no longer open")
-    if shift.start_time.replace(tzinfo=shift.start_time.tzinfo or timezone.utc) <= datetime.now(timezone.utc):
+    if shift.start_time <= _now_ist():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This shift has already started")
 
     existing = (
@@ -339,6 +345,7 @@ def apply_to_shift(
     else:
         application = Application(shift_id=shift_id, staff_id=current_user.id, note=payload.note)
         db.add(application)
+        db.flush()  # populate application.id before using it in notifications/activity log
 
     # Notify the applying staff member
     notify(
@@ -365,8 +372,8 @@ def apply_to_shift(
             category=NotificationCategory.application,
             title="New application",
             body=f"{current_user.full_name} applied for {shift.specialty} · {shift.facility.name}",
-            entity_type="shift",
-            entity_id=shift.id,
+            entity_type="application",
+            entity_id=application.id,
             commit=False,
         )
     log_activity(

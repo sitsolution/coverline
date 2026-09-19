@@ -7,16 +7,17 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ConfirmModal from '../../components/ui/ConfirmModal';
+import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ShiftsStackParamList } from '../../navigation/ShiftsStackNavigator';
 import applicationService, { ApplicationOut, ApplicationCounts } from '../../services/applicationService';
+import earningsService from '../../services/earningsService';
 
-type Props = { navigation: NativeStackNavigationProp<ShiftsStackParamList, 'MyApplications'> };
+type Props = NativeStackScreenProps<ShiftsStackParamList, 'MyApplications'>;
 
 type TabKey = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
 const TABS: TabKey[] = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
@@ -33,7 +34,7 @@ function formatTime(start: string, end: string): string {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
-function AppCard({ item, tab, onCancel }: { item: ApplicationOut; tab: TabKey; onCancel: (id: number) => void }) {
+function AppCard({ item, tab, onCancel, onViewDetails, onPaymentReceived }: { item: ApplicationOut; tab: TabKey; onCancel: (id: number) => void; onViewDetails: (shiftId: number) => void; onPaymentReceived: (paymentId: number) => void }) {
   const badgeStyle =
     tab === 'Confirmed' ? { bg: '#E3F5EC', color: '#1F8A5F' } :
     tab === 'Completed' ? { bg: '#EAF2F8', color: '#175E86' } :
@@ -73,23 +74,37 @@ function AppCard({ item, tab, onCancel }: { item: ApplicationOut; tab: TabKey; o
         <Text style={styles.pay}>₹{shift.payRate.toLocaleString('en-IN')}</Text>
       </View>
 
-      {tab === 'Pending' && item.canCancel && (
-        <View style={styles.actionRow}>
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.outlineBtn} activeOpacity={0.8} onPress={() => onViewDetails(shift.id)}>
+          <Text style={styles.outlineBtnText}>View Details</Text>
+        </TouchableOpacity>
+        {tab === 'Pending' && item.canCancel && (
           <TouchableOpacity style={styles.dangerBtn} activeOpacity={0.8} onPress={() => onCancel(item.id)}>
             <Text style={styles.dangerBtnText}>Cancel Application</Text>
           </TouchableOpacity>
+        )}
+      </View>
+      {tab === 'Completed' && item.paymentStatus === 'paid' && item.paymentId && (
+        <TouchableOpacity style={styles.paymentReceivedBtn} activeOpacity={0.8} onPress={() => onPaymentReceived(item.paymentId!)}>
+          <Text style={styles.paymentReceivedBtnText}>💰 Payment Received</Text>
+        </TouchableOpacity>
+      )}
+      {tab === 'Completed' && item.paymentStatus === 'processing' && (
+        <View style={styles.paymentAcknowledged}>
+          <Text style={styles.paymentAcknowledgedText}>✓ Payment Acknowledged</Text>
         </View>
       )}
     </View>
   );
 }
 
-export default function MyApplicationsScreen({ navigation }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>('Pending');
+export default function MyApplicationsScreen({ navigation, route }: Props) {
+  const [activeTab, setActiveTab] = useState<TabKey>(route.params?.initialTab ?? 'Pending');
   const [items, setItems] = useState<ApplicationOut[]>([]);
   const [counts, setCounts] = useState<ApplicationCounts>({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+  const [cancelModal, setCancelModal] = useState<{ visible: boolean; appId: number | null }>({ visible: false, appId: null });
 
   const load = useCallback(async (tab: TabKey) => {
     setLoading(true);
@@ -108,23 +123,37 @@ export default function MyApplicationsScreen({ navigation }: Props) {
   const loadCurrent = useCallback(() => load(activeTab), [load, activeTab]);
   const { refreshing, onRefresh } = useRefresh(loadCurrent);
 
-  const handleCancel = async (id: number) => {
-    Alert.alert('Cancel Application', 'Are you sure you want to cancel this application?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Yes, Cancel',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await applicationService.cancelApplication(id);
-            load(activeTab);
-          } catch (err: unknown) {
-            const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not cancel application.';
-            setToast({ visible: true, message: msg, type: 'error' });
-          }
-        },
-      },
-    ]);
+  const handleCancel = (id: number) => {
+    setCancelModal({ visible: true, appId: id });
+  };
+
+  const confirmCancel = async () => {
+    const id = cancelModal.appId;
+    setCancelModal({ visible: false, appId: null });
+    if (!id) return;
+    try {
+      await applicationService.cancelApplication(id);
+      load(activeTab);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not cancel application.';
+      setToast({ visible: true, message: msg, type: 'error' });
+    }
+  };
+
+  const handleViewDetails = (shiftId: number) => {
+    navigation.navigate('ShiftDetails', { shiftId });
+  };
+
+  const handlePaymentReceived = async (paymentId: number) => {
+    try {
+      await earningsService.acknowledgePayment(paymentId);
+      setItems(prev => prev.map(item =>
+        item.paymentId === paymentId ? { ...item, paymentStatus: 'processing' } : item
+      ));
+      setToast({ visible: true, message: 'Payment acknowledged. Thank you!', type: 'success' });
+    } catch {
+      setToast({ visible: true, message: 'Failed to acknowledge payment.', type: 'error' });
+    }
   };
 
   const tabCount = (tab: TabKey): number => {
@@ -175,7 +204,7 @@ export default function MyApplicationsScreen({ navigation }: Props) {
           </View>
         ) : (
           items.map((item) => (
-            <AppCard key={item.id} item={item} tab={activeTab} onCancel={handleCancel} />
+            <AppCard key={item.id} item={item} tab={activeTab} onCancel={handleCancel} onViewDetails={handleViewDetails} onPaymentReceived={handlePaymentReceived} />
           ))
         )}
       </ScrollView>
@@ -184,6 +213,16 @@ export default function MyApplicationsScreen({ navigation }: Props) {
         message={toast.message}
         type={toast.type}
         onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+      <ConfirmModal
+        visible={cancelModal.visible}
+        title="Cancel Application?"
+        description="Are you sure you want to cancel this application? This action cannot be undone."
+        confirmLabel="Yes, Cancel Application"
+        dismissLabel="Keep Application"
+        confirmVariant="danger"
+        onConfirm={confirmCancel}
+        onDismiss={() => setCancelModal({ visible: false, appId: null })}
       />
     </Screen>
   );
@@ -216,8 +255,14 @@ const styles = StyleSheet.create({
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pay: { fontSize: 13.5, fontWeight: '800', color: '#0B2D45' },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  dangerBtn: { flex: 1, borderWidth: 1.5, borderColor: '#C0392B', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
+  outlineBtn: { flex: 1, borderWidth: 1.5, borderColor: '#175E86', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
+  outlineBtnText: { fontSize: 11.5, fontWeight: '700', color: '#175E86' },
+  dangerBtn: { flex: 1, borderWidth: 0, backgroundColor: '#FBE7E4', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
   dangerBtnText: { fontSize: 11.5, fontWeight: '700', color: '#C0392B' },
+  paymentReceivedBtn: { marginTop: 8, backgroundColor: '#1F8A5F', borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  paymentReceivedBtnText: { fontSize: 12.5, fontWeight: '700', color: '#fff' },
+  paymentAcknowledged: { marginTop: 8, backgroundColor: '#E3F5EC', borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  paymentAcknowledgedText: { fontSize: 12, fontWeight: '700', color: '#1F8A5F' },
   empty: { alignItems: 'center', paddingTop: 48 },
   emptyIcon: { fontSize: 36, marginBottom: 10 },
   emptyTitle: { fontSize: 14, fontWeight: '800', color: '#14202E', marginBottom: 4 },

@@ -79,19 +79,22 @@ function DotIndicator({ type }: { type: DotColor }) {
 type DayCellProps = {
   day: number | null;
   isToday: boolean;
+  isSelected: boolean;
   mark?: DotColor;
   cellSize: number;
+  onPress: (day: number) => void;
 };
 
-function DayCell({ day, isToday, mark, cellSize }: DayCellProps) {
+function DayCell({ day, isToday, isSelected, mark, cellSize, onPress }: DayCellProps) {
   const sizeStyle = { width: cellSize, height: cellSize };
   if (day === null) return <View style={sizeStyle} />;
   return (
     <TouchableOpacity
-      style={[styles.cell, sizeStyle, isToday && styles.cellToday]}
+      style={[styles.cell, sizeStyle, isToday && styles.cellToday, isSelected && styles.cellSelected]}
       activeOpacity={0.7}
+      onPress={() => onPress(day)}
     >
-      <Text style={[styles.cellText, isToday && styles.cellTextToday]}>{day}</Text>
+      <Text style={[styles.cellText, (isToday || isSelected) && styles.cellTextToday]}>{day}</Text>
       {mark ? <DotIndicator type={mark} /> : null}
     </TouchableOpacity>
   );
@@ -129,6 +132,9 @@ export default function CalendarScreen({ navigation }: Props) {
   const [marks, setMarks] = useState<Record<number, DotColor>>({});
   const [upcoming, setUpcoming] = useState<ShiftItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [dayShifts, setDayShifts] = useState<ShiftItem[] | null>(null);
+  const [dayLoading, setDayLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
   const load = useCallback(async (y: number, m: number) => {
@@ -151,15 +157,42 @@ export default function CalendarScreen({ navigation }: Props) {
 
   useFocusEffect(useCallback(() => { load(year, month); }, [load, year, month]));
 
+  const handleDayPress = async (day: number) => {
+    // Tap same day again → deselect
+    if (day === selectedDay) {
+      setSelectedDay(null);
+      setDayShifts(null);
+      return;
+    }
+    setSelectedDay(day);
+    setDayShifts(null);
+    setDayLoading(true);
+    try {
+      const mm = String(month + 1).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      const res = await calendarService.getDay(`${year}-${mm}-${dd}`);
+      setDayShifts(res.shifts);
+    } catch {
+      setToast({ visible: true, message: 'Could not load shifts for this date.' });
+      setSelectedDay(null);
+    } finally {
+      setDayLoading(false);
+    }
+  };
+
   const cells = buildCells(year, month);
   const todayDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : -1;
 
   const goPrev = () => {
+    setSelectedDay(null);
+    setDayShifts(null);
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
   };
 
   const goNext = () => {
+    setSelectedDay(null);
+    setDayShifts(null);
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   };
@@ -208,8 +241,10 @@ export default function CalendarScreen({ navigation }: Props) {
                 key={i}
                 day={day}
                 isToday={day === todayDay}
+                isSelected={day === selectedDay}
                 mark={day ? marks[day] : undefined}
                 cellSize={CELL_SIZE}
+                onPress={handleDayPress}
               />
             ))}
           </View>
@@ -222,12 +257,29 @@ export default function CalendarScreen({ navigation }: Props) {
           <Text style={styles.legendText}>⚪ Available</Text>
         </View>
 
-        {/* Upcoming Shifts */}
-        <Text style={styles.sectionTitle}>Upcoming Shifts</Text>
-        {upcoming.length === 0 ? (
-          <Text style={styles.emptyText}>No upcoming shifts.</Text>
+        {/* Shifts section — filters by selected day, falls back to all upcoming */}
+        {selectedDay ? (
+          <>
+            <Text style={styles.sectionTitle}>
+              {MONTH_NAMES[month]} {selectedDay}
+            </Text>
+            {dayLoading ? (
+              <ActivityIndicator color="#0F3D5C" style={{ marginVertical: 16 }} />
+            ) : dayShifts && dayShifts.length > 0 ? (
+              dayShifts.map((item) => <ShiftListRow key={item.id} item={item} />)
+            ) : (
+              <Text style={styles.emptyText}>No shifts on this date.</Text>
+            )}
+          </>
         ) : (
-          upcoming.map((item) => <ShiftListRow key={item.id} item={item} />)
+          <>
+            <Text style={styles.sectionTitle}>Upcoming Shifts</Text>
+            {upcoming.length === 0 ? (
+              <Text style={styles.emptyText}>No upcoming shifts.</Text>
+            ) : (
+              upcoming.map((item) => <ShiftListRow key={item.id} item={item} />)
+            )}
+          </>
         )}
       </ScrollView>
       <Toast
@@ -303,6 +355,7 @@ const styles = StyleSheet.create({
     borderColor: '#DCE4EA',
   },
   cellToday: { backgroundColor: '#0F3D5C', borderColor: '#0F3D5C' },
+  cellSelected: { backgroundColor: '#175E86', borderColor: '#175E86' },
   cellText: { fontSize: 11, color: '#14202E' },
   cellTextToday: { color: '#fff', fontWeight: '800' },
 

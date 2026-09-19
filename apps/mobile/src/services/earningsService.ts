@@ -67,6 +67,11 @@ const earningsService = {
     const { data } = await api.get('/earnings/payouts');
     return data;
   },
+
+  acknowledgePayment: async (paymentId: number): Promise<TransactionOut> => {
+    const { data } = await api.post(`/earnings/payments/${paymentId}/received`);
+    return data;
+  },
 };
 
 export default earningsService;

@@ -65,6 +65,7 @@ export interface ShiftItem {
   isNight: boolean;
   isWeekend: boolean;
   tags: string[];
+  status: string;
   applicationStatus: string | null;
   isFavorite: boolean;
   slots: number;

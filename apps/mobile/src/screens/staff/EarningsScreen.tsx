@@ -47,12 +47,20 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
 }
 
 function badgeVariant(status: string): 'success' | 'warning' | 'neutral' {
-  if (status === 'paid') return 'success';
+  if (status === 'paid' || status === 'processing') return 'success';
   if (status === 'pending') return 'warning';
   return 'neutral';
 }
 
-function TransactionRow({ item, isLast }: { item: TransactionOut; isLast: boolean }) {
+function TransactionRow({
+  item,
+  isLast,
+  onReceived,
+}: {
+  item: TransactionOut;
+  isLast: boolean;
+  onReceived: (id: number) => void;
+}) {
   const initials = item.facilityInitials ?? '??';
   const title = item.facilityName ?? 'Unknown';
   const sub = `${txDate(item.earnedAt)} · ${item.specialty ?? 'Shift'}`;
@@ -64,10 +72,22 @@ function TransactionRow({ item, isLast }: { item: TransactionOut; isLast: boolea
       <View style={styles.txInfo}>
         <Text style={styles.txTitle}>{title}</Text>
         <Text style={styles.txSub}>{sub}</Text>
+        {item.status === 'paid' && (
+          <TouchableOpacity
+            style={styles.receivedBtn}
+            activeOpacity={0.8}
+            onPress={() => onReceived(item.id)}
+          >
+            <Text style={styles.receivedBtnText}>Payment Received</Text>
+          </TouchableOpacity>
+        )}
+        {item.status === 'processing' && (
+          <Text style={styles.acknowledgedText}>✓ Acknowledged</Text>
+        )}
       </View>
       <View style={styles.txRight}>
         <Text style={styles.txAmount}>{formatINR(item.amount)}</Text>
-        <Badge label={item.status.charAt(0).toUpperCase() + item.status.slice(1)} variant={badgeVariant(item.status)} />
+        <Badge label={item.status === 'processing' ? 'Received' : item.status.charAt(0).toUpperCase() + item.status.slice(1)} variant={badgeVariant(item.status)} />
       </View>
     </View>
   );
@@ -81,6 +101,7 @@ export default function EarningsScreen({ navigation }: Props) {
   const [transactions, setTransactions] = useState<TransactionOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingOut, setPayingOut] = useState(false);
+  const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
   const load = useCallback(async () => {
@@ -102,6 +123,20 @@ export default function EarningsScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
   const { refreshing, onRefresh } = useRefresh(load);
+
+  const handlePaymentReceived = async (paymentId: number) => {
+    if (acknowledgingId) return;
+    setAcknowledgingId(paymentId);
+    try {
+      const updated = await earningsService.acknowledgePayment(paymentId);
+      setTransactions(prev => prev.map(tx => tx.id === paymentId ? updated : tx));
+      setToast({ visible: true, message: 'Payment acknowledged. Thank you!', type: 'success' });
+    } catch {
+      setToast({ visible: true, message: 'Failed to acknowledge payment.', type: 'error' });
+    } finally {
+      setAcknowledgingId(null);
+    }
+  };
 
   const handleRequestPayout = async () => {
     setPayingOut(true);
@@ -197,7 +232,12 @@ export default function EarningsScreen({ navigation }: Props) {
           <Text style={styles.emptyText}>No transactions yet.</Text>
         ) : (
           transactions.map((tx, i) => (
-            <TransactionRow key={tx.id} item={tx} isLast={i === transactions.length - 1} />
+            <TransactionRow
+              key={tx.id}
+              item={tx}
+              isLast={i === transactions.length - 1}
+              onReceived={handlePaymentReceived}
+            />
           ))
         )}
 
@@ -312,6 +352,18 @@ const styles = StyleSheet.create({
   // Badge
   badge: { borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
   badgeText: { fontSize: 10.5, fontWeight: '700' },
+
+  // Payment received
+  receivedBtn: {
+    marginTop: 6,
+    backgroundColor: '#E3F5EC',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+  },
+  receivedBtnText: { fontSize: 11, fontWeight: '700', color: '#1F8A5F' },
+  acknowledgedText: { fontSize: 11, color: '#1F8A5F', fontWeight: '600', marginTop: 4 },
 
   // Primary button
   primaryBtn: {

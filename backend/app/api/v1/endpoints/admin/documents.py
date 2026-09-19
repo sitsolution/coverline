@@ -89,6 +89,8 @@ def list_documents(
     search: Optional[str] = None,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(upload_date|expiry|staff)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     """Document Verification queue and its five tabs."""
     db = admin.db
@@ -111,7 +113,14 @@ def list_documents(
         query = query.filter(Document.status == DocumentStatus(tab))
 
     total = query.count()
-    rows = query.order_by(Document.created_at.desc()).offset(offset).limit(limit).all()
+    desc = sort_order == "desc"
+    if sort_by == "expiry":
+        order_col = Document.expiry_date.desc() if desc else Document.expiry_date.asc()
+    elif sort_by == "staff":
+        order_col = User.full_name.desc() if desc else User.full_name.asc()
+    else:
+        order_col = Document.created_at.desc() if desc else Document.created_at.asc()
+    rows = query.order_by(order_col).offset(offset).limit(limit).all()
 
     count_query = db.query(Document.status, func.count(Document.id))
     if connected is not None:

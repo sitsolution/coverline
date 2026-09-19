@@ -7,7 +7,7 @@ import MyApplicationsScreen from '../screens/staff/MyApplicationsScreen';
 export type ShiftsStackParamList = {
   ShiftsList: undefined;
   ShiftDetails: { shiftId: number };
-  MyApplications: undefined;
+  MyApplications: { initialTab?: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled' } | undefined;
 };
 
 const Stack = createNativeStackNavigator<ShiftsStackParamList>();

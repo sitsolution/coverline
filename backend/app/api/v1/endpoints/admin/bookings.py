@@ -34,7 +34,7 @@ from app.schemas.admin.shift import TimelineEntry
 from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
-from .common import as_aware, booking_display_status, booking_reference, shift_reference
+from .common import as_aware, booking_display_status, booking_reference, now_ist, shift_reference
 
 router = APIRouter()
 
@@ -118,15 +118,19 @@ def list_bookings(
     search: Optional[str] = None,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(booked_on|status|shift|staff)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     """The Bookings table and its six tabs."""
     query = _base_query(admin)
 
+    user_joined = False
     if search:
         term = f"%{search.strip()}%"
         query = query.join(User, Application.staff_id == User.id).filter(
             func.lower(User.full_name).like(term.lower())
         )
+        user_joined = True
 
     # "upcoming" and "confirmed" share a stored status and split on the shift's
     # start time, so they are filtered in SQL rather than after pagination.
@@ -147,7 +151,18 @@ def list_bookings(
         query = query.filter(Application.status == ApplicationStatus(tab))
 
     total = query.order_by(None).count()
-    applications = query.order_by(Application.applied_at.desc()).offset(offset).limit(limit).all()
+    desc = sort_order == "desc"
+    if sort_by == "status":
+        order_col = Application.status.desc() if desc else Application.status.asc()
+    elif sort_by == "shift":
+        order_col = Shift.start_time.desc() if desc else Shift.start_time.asc()
+    elif sort_by == "staff":
+        if not user_joined:
+            query = query.join(User, Application.staff_id == User.id)
+        order_col = User.full_name.desc() if desc else User.full_name.asc()
+    else:
+        order_col = Application.applied_at.desc() if desc else Application.applied_at.asc()
+    applications = query.order_by(order_col).offset(offset).limit(limit).all()
 
     counts = _tab_counts(admin)
     return BookingListResponse(
@@ -242,11 +257,14 @@ def _get_booking(admin: AdminContext, booking_id: int) -> Application:
     return application
 
 
-def _timeline(application: Application) -> List[TimelineEntry]:
+def _timeline(application: Application, payment: Payment | None = None) -> List[TimelineEntry]:
     """The Timeline panel on Booking Details."""
     shift = application.shift
     completed = application.status == ApplicationStatus.completed
     cancelled = application.status in (ApplicationStatus.cancelled, ApplicationStatus.rejected)
+
+    payment_done = payment is not None and payment.status in (PaymentStatus.paid, PaymentStatus.processing)
+    payment_at = payment.paid_at if payment_done else None
 
     entries = [
         TimelineEntry(label="Shift created", at=shift.created_at, done=True),
@@ -257,7 +275,7 @@ def _timeline(application: Application) -> List[TimelineEntry]:
             done=application.status in (ApplicationStatus.confirmed, ApplicationStatus.completed),
         ),
         TimelineEntry(label="Shift completed", at=None, done=completed),
-        TimelineEntry(label="Payment processed", at=None, done=False),
+        TimelineEntry(label="Payment processed", at=payment_at, done=payment_done),
     ]
     if cancelled:
         entries.append(
@@ -284,6 +302,12 @@ def get_booking(
         .all()
     )
 
+    payment = (
+        admin.db.query(Payment)
+        .filter(Payment.application_id == application.id)
+        .first()
+    )
+
     base = _row(application)
     return BookingDetail(
         **base.model_dump(by_alias=False),
@@ -295,8 +319,10 @@ def get_booking(
         staff_phone=staff.phone,
         staff_rating=float(profile.rating) if profile and profile.rating else 0.0,
         staff_specialty=profile.specialty if profile else None,
-        timeline=_timeline(application),
+        timeline=_timeline(application, payment),
         messages=[BookingMessageOut.model_validate(m) for m in messages],
+        payment_id=payment.id if payment else None,
+        payment_status=payment.status.value if payment else None,
     )
 
 
@@ -381,6 +407,51 @@ def mark_completed(
     return get_booking(booking_id, admin)
 
 
+@router.post("/{booking_id}/payment-done", response_model=BookingDetail)
+def mark_payment_done(
+    booking_id: int,
+    admin: AdminContext = Depends(require_admin(AdminPermission.bookings)),
+):
+    """Admin marks that payment has been sent to the staff member."""
+    application = _get_booking(admin, booking_id)
+
+    if application.status != ApplicationStatus.completed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment can only be marked done for a completed booking",
+        )
+
+    payment = (
+        admin.db.query(Payment)
+        .filter(Payment.application_id == application.id)
+        .first()
+    )
+    if payment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No payment record found for this booking"
+        )
+    if payment.status != PaymentStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Payment is already marked as done"
+        )
+
+    payment.status = PaymentStatus.paid
+    payment.paid_at = datetime.now(timezone.utc)
+
+    notify(
+        admin.db,
+        user_id=application.staff_id,
+        category=NotificationCategory.payment,
+        title="Payment sent",
+        body=f"₹{float(application.shift.pay_rate):,.0f} payment sent for {application.shift.facility.name} · {application.shift.specialty}",
+        entity_type="payment",
+        entity_id=payment.id,
+        commit=False,
+    )
+    admin.db.commit()
+    return get_booking(booking_id, admin)
+
+
 @router.post("/{booking_id}/cancel", response_model=BookingDetail)
 def cancel_booking(
     booking_id: int,
@@ -399,7 +470,7 @@ def cancel_booking(
 
     was_confirmed = application.status == ApplicationStatus.confirmed
     application.status = ApplicationStatus.cancelled
-    application.cancelled_at = datetime.now(timezone.utc)
+    application.cancelled_at = now_ist()
     application.cancellation_reason = payload.reason or "Cancelled by the facility"
 
     shift = application.shift
@@ -414,8 +485,8 @@ def cancel_booking(
         category=NotificationCategory.application,
         title="Booking cancelled by the facility",
         body=f"{shift.facility.name} · {shift.specialty}",
-        entity_type="application",
-        entity_id=application.id,
+        entity_type="shift",
+        entity_id=shift.id,
         commit=False,
     )
     log_activity(

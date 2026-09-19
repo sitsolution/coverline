@@ -32,7 +32,11 @@ def user_context(db: Session, user: User, shifts: Iterable[Shift]) -> tuple[Dict
 
     applications = (
         db.query(Application.shift_id, Application.status)
-        .filter(Application.staff_id == user.id, Application.shift_id.in_(shift_ids))
+        .filter(
+            Application.staff_id == user.id,
+            Application.shift_id.in_(shift_ids),
+            Application.status != ApplicationStatus.cancelled,
+        )
         .all()
     )
     statuses = {shift_id: status.value for shift_id, status in applications}

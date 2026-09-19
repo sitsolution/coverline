@@ -57,6 +57,8 @@ class BookingDetail(BookingRow):
     staff_specialty: Optional[str] = None
     timeline: List[TimelineEntry] = []
     messages: List[BookingMessageOut] = []
+    payment_id: Optional[int] = None
+    payment_status: Optional[str] = None
 
 
 class BookingCancelRequest(CamelModel):

@@ -60,11 +60,13 @@ function InputField({
   value,
   onChangeText,
   keyboardType,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
+  placeholder?: string;
 }) {
   return (
     <View style={styles.field}>
@@ -74,6 +76,7 @@ function InputField({
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType ?? 'default'}
+        placeholder={placeholder}
         placeholderTextColor="#A9B8C4"
         autoCapitalize="none"
       />
@@ -132,8 +135,10 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [initials,   setInitials]   = useState('?');
   const [role,       setRole]       = useState('doctor');
   const [specialty,  setSpecialty]  = useState('');
-  const [experience, setExperience] = useState(EXPERIENCE[0]);
-  const [loading,    setLoading]    = useState(true);
+  const [experience,         setExperience]         = useState(EXPERIENCE[0]);
+  const [preferredLocations, setPreferredLocations] = useState('');
+  const [minPayRate,         setMinPayRate]         = useState('');
+  const [loading,            setLoading]            = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
@@ -151,6 +156,8 @@ export default function EditProfileScreen({ navigation }: Props) {
         setSpecialty(data.profile?.specialty ?? config.options[0]);
         if (data.dateOfBirth) setDob(new Date(data.dateOfBirth));
         if (data.profile?.experience) setExperience(data.profile.experience);
+        setPreferredLocations((data.profile?.preferredLocations ?? []).join(', '));
+        setMinPayRate(data.profile?.minPayRate != null ? String(data.profile.minPayRate) : '');
       } catch {} finally { setLoading(false); }
     })();
   }, []);
@@ -164,6 +171,8 @@ export default function EditProfileScreen({ navigation }: Props) {
         dateOfBirth: dob ? dob.toISOString().split('T')[0] : undefined,
         specialty,
         experience,
+        preferredLocations: preferredLocations.split(',').map(s => s.trim()).filter(Boolean),
+        minPayRate: minPayRate ? parseFloat(minPayRate) : undefined,
       });
       navigation.goBack();
     } catch (err: unknown) {
@@ -222,6 +231,19 @@ export default function EditProfileScreen({ navigation }: Props) {
           onSelect={setSpecialty}
         />
         <PickerField label="Years of Experience" options={EXPERIENCE} value={experience} onSelect={setExperience} />
+        <InputField
+          label="Preferred Locations"
+          value={preferredLocations}
+          onChangeText={setPreferredLocations}
+          placeholder="e.g. Pune, Mumbai"
+        />
+        <InputField
+          label="Minimum Pay Rate (₹ / shift)"
+          value={minPayRate}
+          onChangeText={setMinPayRate}
+          keyboardType="numeric"
+          placeholder="e.g. 1500"
+        />
 
         {/* Cancel / Save buttons */}
         <View style={styles.btnRow}>

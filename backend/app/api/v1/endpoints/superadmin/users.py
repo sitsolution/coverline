@@ -120,6 +120,8 @@ def list_users(
     facility_id: Optional[int] = Query(None),
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(name|role|status|created_at)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     query = db.query(User)
 
@@ -139,7 +141,16 @@ def list_users(
         query = query.filter(User.id.in_(sub))
 
     total = query.count()
-    users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    desc = sort_order == "desc"
+    if sort_by == "name":
+        order_col = User.full_name.desc() if desc else User.full_name.asc()
+    elif sort_by == "role":
+        order_col = User.role.desc() if desc else User.role.asc()
+    elif sort_by == "status":
+        order_col = User.is_active.desc() if desc else User.is_active.asc()
+    else:
+        order_col = User.created_at.desc() if desc else User.created_at.asc()
+    users = query.order_by(order_col).offset(offset).limit(limit).all()
 
     fac_map = _facility_map(db, [u.id for u in users])
     items = [_build_list_item(u, fac_map) for u in users]

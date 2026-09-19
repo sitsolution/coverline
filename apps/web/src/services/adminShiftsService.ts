@@ -82,6 +82,8 @@ export interface ShiftFilters {
   role?: string;
   limit?: number;
   offset?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 const adminShiftsService = {

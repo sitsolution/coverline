@@ -68,6 +68,15 @@ export default function StaffNavigator() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              if (navigation.isFocused()) {
+                // Tab already active — prevent default and reset stack to root
+                e.preventDefault();
+                navigation.navigate(route.name);
+              }
+            },
+          })}
         />
       ))}
     </Tab.Navigator>

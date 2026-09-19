@@ -31,9 +31,9 @@ export interface DocumentReviewListResponse {
 }
 
 const adminDocumentsService = {
-  listDocuments: async (tab = 'pending', search?: string, limit = 25, offset = 0): Promise<DocumentReviewListResponse> => {
+  listDocuments: async (tab = 'pending', search?: string, limit = 25, offset = 0, sortBy?: string, sortOrder?: string): Promise<DocumentReviewListResponse> => {
     const { data } = await api.get('/admin/documents', {
-      params: { tab, search, limit, offset },
+      params: { tab, search, limit, offset, sortBy, sortOrder },
     });
     return data;
   },

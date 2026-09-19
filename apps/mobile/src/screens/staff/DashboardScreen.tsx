@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,13 @@ import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import userService, { DashboardResponse, ShiftItem } from '../../services/userService';
 import shiftService from '../../services/shiftService';
 import chatService from '../../services/chatService';
+import notificationService from '../../services/notificationService';
 import Toast, { ToastType } from '../../components/ui/Toast';
 import EmptyState from '../../components/ui/EmptyState';
 
@@ -147,16 +148,17 @@ export default function DashboardScreen({ navigation }: Props) {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as ToastType });
   const showToast = (message: string, type: ToastType = 'error') =>
     setToast({ visible: true, message, type });
 
-  // Load unread message count from chat rooms
-  useEffect(() => {
+  const loadBadges = useCallback(() => {
     chatService.listMyRooms().then((rooms) => {
       const total = rooms.reduce((sum, r) => sum + r.unreadCount, 0);
       setUnreadMessages(total);
     }).catch(() => {});
+    notificationService.getUnreadCount().then(setUnreadNotifCount).catch(() => {});
   }, []);
 
   const loadDashboard = useCallback(async () => {
@@ -171,10 +173,22 @@ export default function DashboardScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+  // Refresh badges whenever the screen comes into focus, then poll every 30s
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      loadBadges();
+      pollRef.current = setInterval(loadBadges, 30_000);
+      return () => {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
+    }, [loadBadges])
+  );
   const { refreshing, onRefresh } = useRefresh(loadDashboard);
 
   const handleOpenChat = () => {
-    navigation.navigate('Profile', { screen: 'MessagesList' });
+    navigation.navigate('MessagesList');
   };
 
   const handleApply = async (shiftId: number) => {
@@ -247,7 +261,7 @@ export default function DashboardScreen({ navigation }: Props) {
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8} onPress={() => navigation.navigate('Notifications')}>
                 <Text style={styles.bellIcon}>🔔</Text>
               </TouchableOpacity>
-              {(dashboard?.unreadNotifications ?? 0) > 0 && <View style={styles.bellPing} />}
+              {unreadNotifCount > 0 && <View style={styles.bellPing} />}
             </View>
           </View>
         </View>

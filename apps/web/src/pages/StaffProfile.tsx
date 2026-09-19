@@ -160,10 +160,9 @@ export default function StaffProfile() {
 
       {activeTab === 'Overview' && (
         <>
-          <div className="grid grid-cols-4 gap-3 mb-[18px]">
+          <div className="grid grid-cols-3 gap-3 mb-[18px]">
             <KpiCard label="Total Shifts" value={String(profile.stats.shiftsCompleted)} delta="All-time" />
             <KpiCard label="Completion Rate" value={`${profile.stats.completionRate}%`} delta="Above network avg" deltaColor="#1F8A5F" />
-            <KpiCard label="Response Time" value="—" delta="Median" />
             <KpiCard label="Rating" value={`${profile.stats.rating.toFixed(1)}★`} delta={`${profile.stats.reviewsCount} reviews`} />
           </div>
 

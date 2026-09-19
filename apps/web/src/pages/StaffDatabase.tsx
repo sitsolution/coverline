@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import Pagination from '../components/ui/Pagination';
 import adminStaffService, { StaffRow } from '../services/adminStaffService';
+import SortTh from '../components/ui/SortTh';
 
 const PAGE_SIZE = 25;
 
@@ -29,6 +30,18 @@ export default function StaffDatabase() {
   const [availability, setAvailability] = useState('');
   const [verification, setVerification] = useState('');
   const [minRating, setMinRating] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const load = useCallback(async (p = page) => {
     setLoading(true);
@@ -42,6 +55,8 @@ export default function StaffDatabase() {
         minRating: minRating ? parseFloat(minRating) : undefined,
         limit: PAGE_SIZE,
         offset: (p - 1) * PAGE_SIZE,
+        sortBy,
+        sortOrder,
       });
       setStaff(res.items);
       setTotal(res.total);
@@ -50,7 +65,7 @@ export default function StaffDatabase() {
     } finally {
       setLoading(false);
     }
-  }, [search, role, availability, verification, minRating, page]);
+  }, [search, role, availability, verification, minRating, page, sortBy, sortOrder]);
 
   useEffect(() => { setPage(1); }, [search, role, availability, verification, minRating]);
 
@@ -118,14 +133,14 @@ export default function StaffDatabase() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Name</th>
+                <SortTh label="Name" column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Role</th>
                 <th>Specialty/Dept.</th>
                 <th>Location</th>
                 <th>Availability</th>
-                <th>Rating</th>
+                <SortTh label="Rating" column="rating" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Verification</th>
-                <th>Shifts</th>
+                <SortTh label="Shifts" column="shifts" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Actions</th>
               </tr>
             </thead>

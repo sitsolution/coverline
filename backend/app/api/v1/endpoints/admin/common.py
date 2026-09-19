@@ -1,6 +1,8 @@
 """Helpers shared by the admin endpoints."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -21,8 +23,15 @@ def booking_reference(application_id: int) -> str:
 
 
 def as_aware(value: datetime) -> datetime:
-    """MySQL hands back naive datetimes; treat them as UTC."""
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    """MySQL hands back naive datetimes; treat them as IST (Asia/Kolkata, UTC+5:30)
+    since all shift times are entered and stored in Indian Standard Time."""
+    return value if value.tzinfo else value.replace(tzinfo=IST)
+
+
+def now_ist() -> datetime:
+    """Current time as a naive IST datetime — use this for DB-level comparisons
+    against shift start_time / end_time which are stored as naive IST values."""
+    return datetime.now(IST).replace(tzinfo=None)
 
 
 def shift_display_status(shift: Shift, pending_count: int) -> str:
@@ -49,8 +58,7 @@ def booking_display_status(application: Application) -> str:
     """Bookings adds an "Upcoming" tab, which is a confirmed booking whose
     shift has not started yet."""
     if application.status == ApplicationStatus.confirmed:
-        starts = as_aware(application.shift.start_time)
-        return "upcoming" if starts > datetime.now(timezone.utc) else "confirmed"
+        return "upcoming" if application.shift.start_time > now_ist() else "confirmed"
     return application.status.value
 
 

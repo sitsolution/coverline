@@ -16,6 +16,7 @@ from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import func, case
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
@@ -23,6 +24,7 @@ from app.core.deps import get_current_user, get_current_facility_admin
 from app.core.security import decode_token
 from app.models.chat import ChatRoom, DirectMessage
 from app.models.enums import NotificationCategory, STAFF_ROLES
+from app.models.facility import FacilityMember
 from app.models.user import User
 from app.schemas.base import MessageResponse
 from app.schemas.chat import ChatHistoryResponse, ChatRoomOut, DirectMessageOut, SendMessageRequest
@@ -71,10 +73,15 @@ def _get_or_create_room(db: Session, admin_id: int, staff_id: int) -> ChatRoom:
     room_key = f"admin_{admin_id}_staff_{staff_id}"
     room = db.query(ChatRoom).filter(ChatRoom.room_key == room_key).first()
     if room is None:
-        room = ChatRoom(room_key=room_key, admin_id=admin_id, staff_id=staff_id)
-        db.add(room)
-        db.commit()
-        db.refresh(room)
+        try:
+            room = ChatRoom(room_key=room_key, admin_id=admin_id, staff_id=staff_id)
+            db.add(room)
+            db.commit()
+            db.refresh(room)
+        except IntegrityError:
+            # Another concurrent request already created the room (race condition).
+            db.rollback()
+            room = db.query(ChatRoom).filter(ChatRoom.room_key == room_key).first()
     return room
 
 
@@ -96,15 +103,28 @@ def _room_out(room: ChatRoom, viewer_id: int, db: Session) -> ChatRoomOut:
         )
         .scalar()
     ) or 0
+
+    last_msg = (
+        db.query(DirectMessage)
+        .filter(DirectMessage.room_id == room.id)
+        .order_by(DirectMessage.created_at.desc())
+        .first()
+    )
+
+    facility_member = db.query(FacilityMember).filter(FacilityMember.user_id == room.admin_id).first()
+    facility_name = facility_member.facility.name if facility_member else None
+
     return ChatRoomOut(
         id=room.id,
         room_key=room.room_key,
         admin_id=room.admin_id,
         staff_id=room.staff_id,
         admin_name=room.admin.full_name,
+        facility_name=facility_name,
         staff_name=room.staff.full_name,
         staff_initials=room.staff.initials,
         last_message_at=room.last_message_at,
+        last_message_body=last_msg.body[:60] if last_msg else None,
         unread_count=unread,
     )
 
@@ -146,7 +166,10 @@ def staff_list_rooms(
     if current_user.role not in STAFF_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff only")
     rooms = _mysql_rooms_newest_first(
-        db.query(ChatRoom).filter(ChatRoom.staff_id == current_user.id)
+        db.query(ChatRoom).filter(
+            ChatRoom.staff_id == current_user.id,
+            ChatRoom.last_message_at.isnot(None),
+        )
     ).all()
     return [_room_out(r, current_user.id, db) for r in rooms]
 

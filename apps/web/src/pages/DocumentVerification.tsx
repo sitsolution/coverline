@@ -5,6 +5,7 @@ import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
 import Pagination from '../components/ui/Pagination';
 import adminDocumentsService, { DocumentReviewRow } from '../services/adminDocumentsService';
+import SortTh from '../components/ui/SortTh';
 import { apiError } from '../utils/apiError';
 
 const PAGE_SIZE = 20;
@@ -43,6 +44,18 @@ export default function DocumentVerification() {
   const [actionError, setActionError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [showReject, setShowReject] = useState(false);
+  const [sortBy, setSortBy] = useState('upload_date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const selectDoc = useCallback(async (doc: DocumentReviewRow) => {
     setSelected(doc);
@@ -58,7 +71,7 @@ export default function DocumentVerification() {
   const load = useCallback(async (tab: string, p: number) => {
     setLoading(true);
     try {
-      const res = await adminDocumentsService.listDocuments(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE);
+      const res = await adminDocumentsService.listDocuments(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE, sortBy, sortOrder);
       setDocs(res.items);
       setCounts(res.counts);
       setTotal(res.total);
@@ -67,7 +80,7 @@ export default function DocumentVerification() {
     } catch {} finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortOrder]);
 
   useEffect(() => { setPage(1); }, [activeTab]);
   useEffect(() => { load(activeTab, page); }, [load, activeTab, page]);
@@ -130,10 +143,10 @@ export default function DocumentVerification() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Staff</th>
+                <SortTh label="Staff" column="staff" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Document Type</th>
-                <th>Upload Date</th>
-                <th>Expiry</th>
+                <SortTh label="Upload Date" column="upload_date" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Expiry" column="expiry" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Status</th>
                 <th>Actions</th>
               </tr>

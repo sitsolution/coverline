@@ -138,6 +138,8 @@ def list_facilities(
     facility_type: Optional[FacilityType] = Query(None),
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    sort_by: Optional[str] = Query(None, alias="sortBy", pattern="^(name|city|created_at)$"),
+    sort_order: Optional[str] = Query("desc", alias="sortOrder", pattern="^(asc|desc)$"),
 ):
     query = db.query(Facility)
 
@@ -152,7 +154,14 @@ def list_facilities(
         query = query.filter(Facility.facility_type == facility_type)
 
     total = query.count()
-    facilities = query.order_by(Facility.created_at.desc()).offset(offset).limit(limit).all()
+    desc = sort_order == "desc"
+    if sort_by == "name":
+        order_col = Facility.name.desc() if desc else Facility.name.asc()
+    elif sort_by == "city":
+        order_col = Facility.city.desc() if desc else Facility.city.asc()
+    else:
+        order_col = Facility.created_at.desc() if desc else Facility.created_at.asc()
+    facilities = query.order_by(order_col).offset(offset).limit(limit).all()
 
     items = _enrich(db, facilities)
     return FacilityListResponse(items=items, total=total)

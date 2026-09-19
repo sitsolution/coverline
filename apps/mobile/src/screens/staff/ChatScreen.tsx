@@ -14,12 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
+import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import chatService, { DirectMessageOut } from '../../services/chatService';
 
 type Props = {
-  navigation: NativeStackNavigationProp<ProfileStackParamList, 'Chat'>;
-  route: RouteProp<ProfileStackParamList, 'Chat'>;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'Chat'>;
+  route: RouteProp<HomeStackParamList, 'Chat'>;
 };
 
 function msgTime(iso: string | undefined | null): string {

@@ -19,6 +19,7 @@ export interface ChatRoomOut {
   staffName: string;
   staffInitials: string;
   lastMessageAt: string | null;
+  lastMessageBody: string | null;
   unreadCount: number;
 }
 

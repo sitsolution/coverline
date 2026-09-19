@@ -73,7 +73,8 @@ export default function HelpSupportScreen({ navigation }: Props) {
   }, [search, load]);
 
   const handleLiveChat = () => {
-    navigation.navigate('MessagesList');
+    // MessagesList lives in HomeStack — navigate to Home tab first
+    navigation.getParent()?.navigate('Home', { screen: 'MessagesList' } as any);
   };
 
   return (

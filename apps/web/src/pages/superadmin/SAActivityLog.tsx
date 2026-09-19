@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import Panel from '../../components/ui/Panel';
 import superAdminService, { SAActivityItem } from '../../services/superAdminService';
+import SortTh from '../../components/ui/SortTh';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,17 @@ export default function SAActivityLog() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError]             = useState('');
   const [category, setCategory]       = useState('all');
+  const [sortBy, setSortBy]           = useState('timestamp');
+  const [sortOrder, setSortOrder]     = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (col === sortBy) {
+      setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+  };
 
   const load = useCallback(
     async (cat: string, replace = true) => {
@@ -83,6 +95,8 @@ export default function SAActivityLog() {
           category: apiCategory,
           limit: PAGE_SIZE,
           offset: replace ? 0 : items.length,
+          sortBy,
+          sortOrder,
         });
         setItems((prev) => (replace ? res.items : [...prev, ...res.items]));
         setTotal(res.total);
@@ -93,13 +107,14 @@ export default function SAActivityLog() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [category, items.length],
+    [category, items.length, sortBy, sortOrder],
   );
 
   useEffect(() => {
+    setItems([]);
     load(category, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [category, sortBy, sortOrder]);
 
   const handleCategoryChange = (key: string) => {
     setItems([]);
@@ -155,8 +170,8 @@ export default function SAActivityLog() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th style={{ width: 160 }}>Timestamp</th>
-                <th style={{ width: 190 }}>Actor</th>
+                <SortTh label="Timestamp" column="timestamp" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Actor" column="actor" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th style={{ width: 160 }}>Action</th>
                 <th>Details</th>
                 <th style={{ width: 150 }}>Facility</th>

@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
+import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import chatService, { ChatRoomOut } from '../../services/chatService';
 
 type Props = {
-  navigation: NativeStackNavigationProp<ProfileStackParamList, 'MessagesList'>;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'MessagesList'>;
 };
 
 function timeAgo(iso: string | null): string {
@@ -76,11 +76,16 @@ export default function MessagesListScreen({ navigation }: Props) {
       {/* Text */}
       <View style={styles.rowBody}>
         <View style={styles.rowTop}>
-          <Text style={styles.adminName} numberOfLines={1}>{item.adminName}</Text>
+          <Text style={[styles.adminName, item.unreadCount > 0 && styles.adminNameUnread]} numberOfLines={1}>
+            {item.adminName}
+          </Text>
           <Text style={styles.time}>{timeAgo(item.lastMessageAt)}</Text>
         </View>
-        <Text style={styles.preview} numberOfLines={1}>
-          Facility Admin
+        {item.facilityName ? (
+          <Text style={styles.facilityName} numberOfLines={1}>{item.facilityName}</Text>
+        ) : null}
+        <Text style={[styles.preview, item.unreadCount > 0 && styles.previewUnread]} numberOfLines={1}>
+          {item.lastMessageBody ?? 'No messages yet'}
         </Text>
       </View>
 
@@ -164,8 +169,11 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, minWidth: 0 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
   adminName: { fontSize: 13.5, fontWeight: '700', color: '#1A2E52', flex: 1, marginRight: 8 },
+  adminNameUnread: { fontWeight: '800' },
   time: { fontSize: 11, color: '#A9B8C4', flexShrink: 0 },
+  facilityName: { fontSize: 11, color: '#5A7A94', marginBottom: 2 },
   preview: { fontSize: 12, color: '#7A90A4' },
+  previewUnread: { color: '#1A2E52', fontWeight: '600' },
   badge: {
     minWidth: 20, height: 20, borderRadius: 10,
     backgroundColor: '#C0392B',

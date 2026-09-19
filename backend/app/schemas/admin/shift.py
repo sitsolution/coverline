@@ -54,6 +54,7 @@ class ApplicantRow(CamelModel):
     shifts_completed: int
     is_verified: bool
     applied_at: datetime
+    responded_at: Optional[datetime] = None
     status: str
 
 

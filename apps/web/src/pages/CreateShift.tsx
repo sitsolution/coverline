@@ -9,6 +9,7 @@ import adminShiftsService, { ShiftFormOptions } from '../services/adminShiftsSer
 // Simple select
 function SelectField({
   label,
+  required,
   options,
   labels,
   value,
@@ -16,6 +17,7 @@ function SelectField({
   error,
 }: {
   label: string;
+  required?: boolean;
   options: string[];
   labels?: Record<string, string>;
   value: string;
@@ -24,7 +26,9 @@ function SelectField({
 }) {
   return (
     <div className="mb-[13px]">
-      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">{label}</label>
+      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">
+        {label}{required && <span className="text-urgent ml-[2px]">*</span>}
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -200,6 +204,7 @@ export default function CreateShift() {
 
             <SelectField
               label="Role Needed"
+              required
               options={ROLE_OPTIONS}
               labels={ROLE_LABELS}
               value={role}
@@ -214,6 +219,7 @@ export default function CreateShift() {
 
             <SelectField
               label="Department / Specialty"
+              required
               options={ROLE_SPECIALTIES[role]}
               value={specialty}
               onChange={(v) => { setSpecialty(v); clearFieldError('specialty'); }}
@@ -231,6 +237,7 @@ export default function CreateShift() {
           <Panel title="Date & Time">
             <FormField
               label="Date"
+              required
               type="date"
               value={date}
               error={fieldErrors.date}
@@ -239,6 +246,7 @@ export default function CreateShift() {
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 label="Start Time"
+                required
                 type="time"
                 value={startTime}
                 error={fieldErrors.startTime}
@@ -246,6 +254,7 @@ export default function CreateShift() {
               />
               <FormField
                 label="End Time"
+                required
                 type="time"
                 value={endTime}
                 error={fieldErrors.endTime}
@@ -288,6 +297,7 @@ export default function CreateShift() {
           <Panel title="Compensation">
             <FormField
               label="Pay Rate (₹)"
+              required
               placeholder="9500"
               value={payRate}
               error={fieldErrors.payRate}

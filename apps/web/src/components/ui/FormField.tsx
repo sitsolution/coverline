@@ -1,5 +1,6 @@
 type Props = {
   label: string;
+  required?: boolean;
   placeholder?: string;
   defaultValue?: string;
   value?: string;
@@ -8,10 +9,12 @@ type Props = {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
 
-export default function FormField({ label, placeholder, defaultValue, value, type = 'text', error, onChange }: Props) {
+export default function FormField({ label, required, placeholder, defaultValue, value, type = 'text', error, onChange }: Props) {
   return (
     <div className="mb-[13px]">
-      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">{label}</label>
+      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">
+        {label}{required && <span className="text-urgent ml-[2px]">*</span>}
+      </label>
       <input
         type={type}
         placeholder={placeholder}

@@ -1,4 +1,11 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+_IST = ZoneInfo("Asia/Kolkata")
+
+
+def _now_ist() -> datetime:
+    return datetime.now(_IST).replace(tzinfo=None)
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,8 +15,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.deps import get_current_staff
 from app.models.application import Application
-from app.models.enums import ApplicationStatus, NotificationCategory
+from app.models.enums import ActivityActionType, ApplicationStatus, NotificationCategory
 from app.models.facility import FacilityMember
+from app.models.payment import Payment
 from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.application import (
@@ -18,6 +26,7 @@ from app.schemas.application import (
     CancelApplicationRequest,
 )
 from app.services import serializers
+from app.services.activity_log import log_activity
 from app.services.notifications import notify
 
 router = APIRouter()
@@ -31,7 +40,7 @@ TAB_STATUSES = {
 }
 
 
-def _to_out(application: Application) -> ApplicationOut:
+def _to_out(application: Application, payment: Payment | None = None) -> ApplicationOut:
     return ApplicationOut(
         id=application.id,
         status=application.status,
@@ -43,6 +52,8 @@ def _to_out(application: Application) -> ApplicationOut:
         shift=serializers.shift_item(
             application.shift, {application.shift_id: application.status.value}, set()
         ),
+        payment_id=payment.id if payment else None,
+        payment_status=payment.status.value if payment else None,
     )
 
 
@@ -76,8 +87,15 @@ def list_applications(
     total = query.count()
     applications = query.order_by(Application.applied_at.desc()).offset(offset).limit(limit).all()
 
+    # Fetch payments for all returned applications in one query
+    app_ids = [a.id for a in applications]
+    payments_by_app = {}
+    if app_ids:
+        for p in db.query(Payment).filter(Payment.application_id.in_(app_ids)).all():
+            payments_by_app[p.application_id] = p
+
     return ApplicationListResponse(
-        items=[_to_out(a) for a in applications],
+        items=[_to_out(a, payments_by_app.get(a.id)) for a in applications],
         total=total,
         counts=counts,
     )
@@ -98,7 +116,8 @@ def get_application(
     )
     if application is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
-    return _to_out(application)
+    payment = db.query(Payment).filter(Payment.application_id == application.id).first()
+    return _to_out(application, payment)
 
 
 @router.post("/{application_id}/cancel", response_model=ApplicationOut)
@@ -131,7 +150,7 @@ def cancel_application(
 
     was_confirmed = application.status == ApplicationStatus.confirmed
     application.status = ApplicationStatus.cancelled
-    application.cancelled_at = datetime.now(timezone.utc)
+    application.cancelled_at = _now_ist()
     application.cancellation_reason = payload.reason
 
     if was_confirmed:
@@ -142,34 +161,53 @@ def cancel_application(
             from app.models.enums import ShiftStatus
             shift.status = ShiftStatus.open
 
+    # Activity log — visible in staff My Activity and admin Activity Log
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.application_cancelled,
+        description=(
+            f"Cancelled application for {application.shift.specialty} at "
+            f"{application.shift.facility.name} on "
+            f"{application.shift.start_time.strftime('%d %b %Y')}"
+        ),
+        entity_type="application",
+        entity_id=application.id,
+        facility_id=application.shift.facility_id,
+    )
+
+    # Notify the staff member who cancelled
     notify(
         db,
         user_id=current_user.id,
         category=NotificationCategory.application,
         title="Application cancelled",
         body=f"{application.shift.facility.name} · {application.shift.specialty}",
-        entity_type="application",
-        entity_id=application.id,
+        entity_type="shift",
+        entity_id=application.shift_id,
         commit=False,
     )
-    if was_confirmed:
-        admin_ids = [
-            m.user_id
-            for m in db.query(FacilityMember)
-            .filter(FacilityMember.facility_id == application.shift.facility_id)
-            .all()
-        ]
-        for admin_id in admin_ids:
-            notify(
-                db,
-                user_id=admin_id,
-                category=NotificationCategory.application,
-                title="Booking cancelled by staff",
-                body=f"{current_user.full_name} cancelled · {application.shift.specialty}",
-                entity_type="application",
-                entity_id=application.id,
-                commit=False,
-            )
+
+    # Notify facility admins for both pending and confirmed cancellations
+    admin_ids = [
+        m.user_id
+        for m in db.query(FacilityMember)
+        .filter(FacilityMember.facility_id == application.shift.facility_id)
+        .all()
+    ]
+    notif_title = "Booking cancelled by staff" if was_confirmed else "Application withdrawn by staff"
+    for admin_id in admin_ids:
+        notify(
+            db,
+            user_id=admin_id,
+            category=NotificationCategory.application,
+            title=notif_title,
+            body=f"{current_user.full_name} · {application.shift.specialty}",
+            entity_type="application",
+            entity_id=application.id,
+            commit=False,
+        )
+
     db.commit()
     db.refresh(application)
     return _to_out(application)

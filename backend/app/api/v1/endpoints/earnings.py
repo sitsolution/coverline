@@ -8,10 +8,13 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_staff
-from app.models.enums import PaymentStatus, PayoutStatus
+from app.models.application import Application
+from app.models.enums import NotificationCategory, PaymentStatus, PayoutStatus
+from app.models.facility import FacilityMember
 from app.models.payment import Payment, PayoutRequest
 from app.models.shift import Shift
 from app.models.user import User
+from app.services.notifications import notify
 from app.schemas.earnings import (
     EarningsSummary,
     PayoutRequestCreate,
@@ -205,6 +208,67 @@ def request_payout(
     db.commit()
     db.refresh(payout)
     return PayoutRequestOut.model_validate(payout)
+
+
+@router.post("/payments/{payment_id}/received", response_model=TransactionOut)
+def acknowledge_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff),
+):
+    """Staff confirms they received their payment."""
+    payment = (
+        db.query(Payment)
+        .options(joinedload(Payment.shift).joinedload(Shift.facility))
+        .filter(Payment.id == payment_id, Payment.user_id == current_user.id)
+        .first()
+    )
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+    if payment.status != PaymentStatus.paid:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Payment has not been marked as sent yet",
+        )
+
+    payment.status = PaymentStatus.processing  # processing = staff acknowledged receipt
+
+    # Notify all facility admins that the staff has acknowledged receiving payment
+    if payment.application_id:
+        application = db.query(Application).filter(Application.id == payment.application_id).first()
+        if application:
+            admin_ids = [
+                m.user_id for m in db.query(FacilityMember)
+                .filter(FacilityMember.facility_id == application.shift.facility_id)
+                .all()
+            ]
+            for admin_id in admin_ids:
+                notify(
+                    db,
+                    user_id=admin_id,
+                    category=NotificationCategory.payment,
+                    title="Payment received by staff",
+                    body=f"{current_user.full_name} confirmed receipt of ₹{float(payment.amount):,.0f} · {application.shift.specialty}",
+                    entity_type="application",
+                    entity_id=application.id,
+                    commit=False,
+                )
+
+    db.commit()
+    db.refresh(payment)
+
+    shift = payment.shift
+    return TransactionOut(
+        id=payment.id,
+        facility_name=shift.facility.name if shift else None,
+        facility_initials=shift.facility.initials if shift else None,
+        specialty=shift.specialty if shift else None,
+        amount=float(payment.amount),
+        status=payment.status,
+        earned_at=payment.earned_at,
+        paid_at=payment.paid_at,
+        reference=payment.reference,
+    )
 
 
 @router.get("/payouts", response_model=list[PayoutRequestOut])
