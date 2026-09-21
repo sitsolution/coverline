@@ -12,6 +12,7 @@ const { spawnSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const net  = require('net');
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 const ROOT    = path.resolve(__dirname, '..');
@@ -42,6 +43,36 @@ function run(cmd, opts = {}) {
 
 function runQuiet(cmd, opts = {}) {
   return spawnSync(cmd, { shell: true, stdio: 'pipe', cwd: ROOT, ...opts });
+}
+
+// Parses host/port out of a SQLAlchemy-style DATABASE_URL, e.g.
+// mysql+pymysql://user:pass@localhost:3306/dbname
+function parseDbHostPort(databaseUrl) {
+  try {
+    // URL can't parse the "mysql+pymysql://" scheme directly, so normalize it.
+    const normalized = databaseUrl.replace(/^[^:]+:\/\//, 'mysql://');
+    const url = new URL(normalized);
+    return { host: url.hostname || 'localhost', port: Number(url.port) || 3306 };
+  } catch {
+    return null;
+  }
+}
+
+// Quick TCP check so we can fail with a clear message instead of a Python
+// traceback when the database server isn't running yet.
+function isPortOpen(host, port, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const done = (result) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+    socket.connect(port, host);
+  });
 }
 
 // ── 0. Check Node ─────────────────────────────────────────────────────────────
@@ -171,29 +202,50 @@ if (!fs.existsSync(envFile)) {
 }
 
 // ── 5. DB migrations ──────────────────────────────────────────────────────────
-info('');
-const envContent = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : '';
+(async () => {
+  info('');
+  const envContent = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : '';
+  const dbUrlMatch = envContent.match(/^DATABASE_URL=(.+)$/m);
+  const dbUrl = dbUrlMatch ? dbUrlMatch[1].trim() : '';
+  const alembicCmd = IS_WIN ? '.venv\\Scripts\\alembic' : '.venv/bin/alembic';
 
-if (envContent.includes('your-secret-key-here') || envContent.includes('password@localhost')) {
-  warn('Skipping DB migrations — backend/.env still has placeholder values.');
-  warn('Run this after configuring .env:');
-  warn(`  cd backend && ${IS_WIN ? '.venv\\Scripts\\alembic' : '.venv/bin/alembic'} upgrade head`);
-} else {
-  info('Running database migrations...');
-  run(`"${VENV_ALEMBIC}" upgrade head`, { cwd: BACKEND });
-  info('Database migrations applied  ✓');
-}
+  if (envContent.includes('your-secret-key-here') || envContent.includes('password@localhost')) {
+    warn('Skipping DB migrations — backend/.env still has placeholder values.');
+    warn('Run this after configuring .env:');
+    warn(`  cd backend && ${alembicCmd} upgrade head`);
+  } else {
+    const hostPort = parseDbHostPort(dbUrl);
 
-// ── Done ──────────────────────────────────────────────────────────────────────
-console.log('');
-console.log(`${GREEN}────────────────────────────────────────────${RESET}`);
-console.log(`${GREEN}  Setup complete!${RESET}`);
-console.log(`${GREEN}────────────────────────────────────────────${RESET}`);
-console.log('');
-console.log('  Run mobile app + backend:   npm run app');
-console.log('  Run admin panel + backend:  npm run admin');
-console.log('  Run backend only:           npm run backend');
-console.log('');
-console.log('  API docs:     http://localhost:8000/docs');
-console.log('  Admin panel:  http://localhost:5173');
-console.log('');
+    if (hostPort && !(await isPortOpen(hostPort.host, hostPort.port))) {
+      warn(`Skipping DB migrations — can't reach MySQL at ${hostPort.host}:${hostPort.port}.`);
+      warn('Make sure a MySQL 8.0+ server is installed and running, then re-run migrations:');
+      warn(`  cd backend && ${alembicCmd} upgrade head`);
+      warn('');
+      warn('No MySQL locally? Install it with:');
+      if (IS_WIN) {
+        warn('  Download & run the installer: https://dev.mysql.com/downloads/installer/');
+      } else {
+        warn('  brew install mysql && brew services start mysql');
+      }
+      warn(`Then create the database: CREATE DATABASE ${dbUrl.split('/').pop() || 'coverline'};`);
+    } else {
+      info('Running database migrations...');
+      run(`"${VENV_ALEMBIC}" upgrade head`, { cwd: BACKEND });
+      info('Database migrations applied  ✓');
+    }
+  }
+
+  // ── Done ────────────────────────────────────────────────────────────────────
+  console.log('');
+  console.log(`${GREEN}────────────────────────────────────────────${RESET}`);
+  console.log(`${GREEN}  Setup complete!${RESET}`);
+  console.log(`${GREEN}────────────────────────────────────────────${RESET}`);
+  console.log('');
+  console.log('  Run mobile app + backend:   npm run app');
+  console.log('  Run admin panel + backend:  npm run admin');
+  console.log('  Run backend only:           npm run backend');
+  console.log('');
+  console.log('  API docs:     http://localhost:8000/docs');
+  console.log('  Admin panel:  http://localhost:5173');
+  console.log('');
+})();
