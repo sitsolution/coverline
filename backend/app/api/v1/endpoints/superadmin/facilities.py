@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.superadmin.deps import require_super_admin
 from app.core.deps import get_db
-from app.models.enums import FacilityRole, FacilityType
+from app.core.security import hash_password
+from app.models.enums import AdminPermission, FacilityRole, FacilityType, UserRole
 from app.models.facility import Facility, FacilityMember
 from app.models.user import User
 from app.schemas.base import CamelModel
@@ -53,12 +54,17 @@ class FacilityDetail(FacilityListItem):
 
 
 class CreateFacilityBody(CamelModel):
+    # Facility details
     name: str
     facility_type: FacilityType
     city: str
     area: Optional[str] = None
     state: Optional[str] = None
-    contact_email: Optional[str] = None
+    # Admin account
+    admin_full_name: str
+    admin_email: str
+    admin_phone: Optional[str] = None
+    admin_password: str
 
 
 class UpdateFacilityBody(CamelModel):
@@ -199,16 +205,48 @@ def create_facility(
     current_user: User = Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
+    # Check admin email not already taken
+    if db.query(User).filter(User.email == body.admin_email).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists.",
+        )
+
+    # Create facility
     facility = Facility(
         name=body.name,
         facility_type=body.facility_type,
         city=body.city,
         area=body.area,
         state=body.state,
-        contact_email=body.contact_email,
+        contact_email=body.admin_email,
         created_by_id=current_user.id,
     )
     db.add(facility)
+    db.flush()
+
+    # Create facility admin user
+    admin_user = User(
+        full_name=body.admin_full_name,
+        email=body.admin_email,
+        phone=body.admin_phone,
+        hashed_password=hash_password(body.admin_password),
+        role=UserRole.facility_admin,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(admin_user)
+    db.flush()
+
+    # Link admin to facility with full permissions
+    db.add(FacilityMember(
+        facility_id=facility.id,
+        user_id=admin_user.id,
+        facility_role=FacilityRole.super_admin,
+        permissions=",".join(p.value for p in AdminPermission),
+        accepted_at=None,
+    ))
+
     db.commit()
     db.refresh(facility)
 

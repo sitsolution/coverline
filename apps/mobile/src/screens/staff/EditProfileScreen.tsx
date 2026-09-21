@@ -23,7 +23,7 @@ type Props = {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const EXPERIENCE = ['1–2 years', '3–5 years', '6–10 years', '10+ years'];
+const EXPERIENCE = ['0–2 years', '3–5 years', '6–10 years', '10+ years'];
 
 // Matches the options shown on each role's signup screen
 const ROLE_SPECIALTY_CONFIG: Record<string, { label: string; options: string[] }> = {
@@ -132,7 +132,7 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [initials,   setInitials]   = useState('?');
   const [role,       setRole]       = useState('doctor');
   const [specialty,  setSpecialty]  = useState('');
-  const [experience, setExperience] = useState(EXPERIENCE[2]);
+  const [experience, setExperience] = useState(EXPERIENCE[0]);
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });

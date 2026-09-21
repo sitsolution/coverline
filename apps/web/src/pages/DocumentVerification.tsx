@@ -3,8 +3,11 @@ import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
 import TabNav from '../components/ui/TabNav';
+import Pagination from '../components/ui/Pagination';
 import adminDocumentsService, { DocumentReviewRow } from '../services/adminDocumentsService';
 import { apiError } from '../utils/apiError';
+
+const PAGE_SIZE = 20;
 
 const TABS = ['all', 'pending', 'verified', 'expired', 'rejected'];
 const TAB_LABELS: Record<string, string> = {
@@ -31,6 +34,7 @@ export default function DocumentVerification() {
   const [docs, setDocs] = useState<DocumentReviewRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<DocumentReviewRow | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState(false);
@@ -51,10 +55,10 @@ export default function DocumentVerification() {
     } catch {}
   }, []);
 
-  const load = useCallback(async (tab: string) => {
+  const load = useCallback(async (tab: string, p: number) => {
     setLoading(true);
     try {
-      const res = await adminDocumentsService.listDocuments(tab);
+      const res = await adminDocumentsService.listDocuments(tab, undefined, PAGE_SIZE, (p - 1) * PAGE_SIZE);
       setDocs(res.items);
       setCounts(res.counts);
       setTotal(res.total);
@@ -65,7 +69,8 @@ export default function DocumentVerification() {
     }
   }, []);
 
-  useEffect(() => { load(activeTab); }, [load, activeTab]);
+  useEffect(() => { setPage(1); }, [activeTab]);
+  useEffect(() => { load(activeTab, page); }, [load, activeTab, page]);
 
   const handleVerify = async () => {
     if (!selected || actionLoading) return;
@@ -121,7 +126,7 @@ export default function DocumentVerification() {
       {/* Two-column layout */}
       <div className="grid gap-4" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
         {/* Left — Document list */}
-        <Panel className="p-0 overflow-hidden">
+        <Panel className="overflow-hidden">
           <table className="adm-table">
             <thead>
               <tr>
@@ -159,6 +164,7 @@ export default function DocumentVerification() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
         </Panel>
 
         {/* Right — Document Preview */}

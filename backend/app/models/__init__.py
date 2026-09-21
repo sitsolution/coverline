@@ -37,6 +37,7 @@ from app.models.shift import Shift, ShiftFavorite
 from app.models.staff_meta import BookingMessage, StaffNote, StaffReview
 from app.models.support import DeviceToken, Faq, SupportTicket
 from app.models.user import StaffProfile, User, UserSettings
+from app.models.chat import ChatRoom, DirectMessage
 
 __all__ = [
     "ActivityActionType",
@@ -83,4 +84,6 @@ __all__ = [
     "User",
     "UserRole",
     "UserSettings",
+    "ChatRoom",
+    "DirectMessage",
 ]

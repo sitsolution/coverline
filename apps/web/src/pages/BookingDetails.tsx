@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Panel from '../components/ui/Panel';
+import ChatDrawer from '../components/ChatDrawer';
 import adminBookingsService, { BookingDetail } from '../services/adminBookingsService';
 import { apiError } from '../utils/apiError';
 
@@ -17,6 +18,14 @@ function statusVariant(status: string): BadgeVariant {
     case 'cancelled': return 'urgent';
     default: return 'neutral';
   }
+}
+
+function roleLabel(role: string): string {
+  const map: Record<string, string> = {
+    doctor: 'Doctor', nurse: 'Nurse', ot_tech: 'OT Tech',
+    housekeeping: 'Housekeeping', facility_admin: 'Admin',
+  };
+  return map[role] ?? role;
 }
 
 function shiftLabel(booking: BookingDetail): string {
@@ -42,6 +51,7 @@ export default function BookingDetails() {
   const [showCancelPanel, setShowCancelPanel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [actionError, setActionError] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -155,7 +165,7 @@ export default function BookingDetails() {
 
         {/* Right */}
         <div>
-          <Panel title="Doctor">
+          <Panel title={roleLabel(booking.shiftRole)}>
             <div className="flex gap-[10px] items-center">
               <div className="w-9 h-9 rounded-full bg-sky flex items-center justify-center font-extrabold text-[12px] text-navy flex-shrink-0">
                 {booking.staffInitials}
@@ -182,13 +192,13 @@ export default function BookingDetails() {
             {actionError && (
               <p className="text-[11px] text-urgent font-semibold mb-2">{actionError}</p>
             )}
-            {booking.staffEmail && (
-              <a
-                href={`mailto:${booking.staffEmail}`}
+            {booking.staffId && (
+              <button
+                onClick={() => setChatOpen(true)}
                 className="block w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 text-center"
               >
-                Contact Doctor
-              </a>
+                Contact Staff Member
+              </button>
             )}
             {['confirmed', 'upcoming'].includes(booking.status) && (
               <button
@@ -237,6 +247,14 @@ export default function BookingDetails() {
           </Panel>
         </div>
       </div>
+
+      {chatOpen && booking.staffId && (
+        <ChatDrawer
+          staffId={booking.staffId}
+          staffName={booking.staffName}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
     </Layout>
   );
 }

@@ -17,6 +17,7 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/HomeStackNavigator';
 import { StaffTabParamList } from '../../navigation/StaffNavigator';
 import notificationService, { NotificationOut } from '../../services/notificationService';
+import chatService from '../../services/chatService';
 
 type NotificationsNavProp = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, 'Notifications'>,
@@ -101,11 +102,22 @@ export default function NotificationsScreen({ navigation }: Props) {
 
   const handlePress = async (item: NotificationOut) => {
     if (!item.isRead) handleMarkRead(item.id);
+
     if (item.entityId && (item.category === 'shift_alert' || item.category === 'application')) {
       navigation.navigate('Shifts', {
         screen: 'ShiftDetails',
         params: { shiftId: item.entityId },
       });
+    } else if (item.category === 'message' && item.entityId) {
+      try {
+        const room = await chatService.getRoomById(item.entityId);
+        navigation.navigate('Profile', {
+          screen: 'Chat',
+          params: { roomKey: room.roomKey, adminName: 'Facility Admin' },
+        });
+      } catch {
+        setToast({ visible: true, message: 'Could not open chat.', type: 'error' });
+      }
     } else if (item.category === 'payment' || item.category === 'document') {
       setToast({ visible: true, message: 'No further action needed for this notification.', type: 'info' });
     }

@@ -346,7 +346,7 @@ def _applicants(db: Session, shift: Shift) -> List[ApplicantRow]:
 
 def _timeline(db: Session, shift: Shift, applicants: List[ApplicantRow]) -> List[TimelineEntry]:
     """The Shift Timeline panel."""
-    confirmed = [a for a in applicants if a.status == ApplicationStatus.confirmed.value]
+    confirmed = [a for a in applicants if a.status in (ApplicationStatus.confirmed.value, ApplicationStatus.completed.value)]
     entries = [
         TimelineEntry(label="Created", at=shift.created_at, done=True),
         TimelineEntry(
@@ -700,12 +700,6 @@ def complete_shift(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="This shift is already completed"
         )
-    if as_aware(shift.end_time) > datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This shift has not finished yet",
-        )
-
     confirmed = (
         db.query(Application)
         .filter(Application.shift_id == shift_id, Application.status == ApplicationStatus.confirmed)

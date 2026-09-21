@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     auth,
     availability,
     calendar,
+    chat,
     documents,
     earnings,
     notifications,
@@ -29,6 +30,7 @@ api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"]
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(earnings.router, prefix="/earnings", tags=["earnings"])
 api_router.include_router(support.router, prefix="/support", tags=["support"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 
 # Admin panel. Every route inside is gated on facility membership and a
 # per-screen permission — see app/core/admin.py.

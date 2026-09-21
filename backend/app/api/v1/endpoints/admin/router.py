@@ -6,6 +6,7 @@ from app.api.v1.endpoints.admin import (
     bookings,
     dashboard,
     documents,
+    search,
     settings,
     shifts,
     staff,
@@ -23,3 +24,4 @@ admin_router.include_router(bookings.router, prefix="/bookings", tags=["admin: b
 admin_router.include_router(documents.router, prefix="/documents", tags=["admin: documents"])
 admin_router.include_router(billing.router, prefix="/invoices", tags=["admin: billing"])
 admin_router.include_router(settings.router, prefix="/settings", tags=["admin: settings"])
+admin_router.include_router(search.router, tags=["admin: search"])
