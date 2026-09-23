@@ -78,3 +78,14 @@ class SettingsUpdate(CamelModel):
 class DeviceTokenRegister(CamelModel):
     token: str
     platform: str = Field(pattern="^(ios|android)$")
+
+
+class WebPushSubscriptionRegister(CamelModel):
+    """Payload sent by the browser after calling pushManager.subscribe()."""
+    endpoint: str
+    p256dh_key: str   # base64url DH public key
+    auth_key: str     # base64url auth secret
+
+
+class WebPushSubscriptionRemove(CamelModel):
+    endpoint: str

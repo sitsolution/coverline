@@ -49,3 +49,23 @@ class DeviceToken(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class WebPushSubscription(Base):
+    """Browser Web Push subscription for the admin web panel.
+
+    Stored per browser tab/device.  The endpoint is the unique identifier
+    assigned by the browser vendor (Chrome → FCM, Firefox → Mozilla, etc.).
+    """
+
+    __tablename__ = "web_push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    endpoint = Column(String(500), nullable=False, unique=True)
+    p256dh_key = Column(String(255), nullable=False)   # browser DH public key (base64url)
+    auth_key = Column(String(255), nullable=False)  # random auth secret  (base64url)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

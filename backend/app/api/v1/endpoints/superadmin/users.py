@@ -12,11 +12,12 @@ from app.api.v1.endpoints.superadmin.deps import require_super_admin
 from app.core.deps import get_db
 from app.core.security import hash_password
 from app.models.document import Document
-from app.models.enums import DocumentStatus, DocumentType, FacilityRole, UserRole
+from app.models.enums import ActivityActionType, DocumentStatus, DocumentType, FacilityRole, UserRole
 from app.models.facility import Facility, FacilityMember
 from app.models.user import User, UserSettings
 from app.schemas.base import CamelModel, MessageResponse
 from app.services import otp as otp_service
+from app.services.activity_log import log_activity
 
 router = APIRouter()
 
@@ -39,6 +40,7 @@ class UserListItem(CamelModel):
 class DocumentBrief(CamelModel):
     id: int
     doc_type: str
+    original_filename: str
     status: DocumentStatus
     uploaded_at: datetime
     expiry_date: Optional[datetime] = None
@@ -224,6 +226,7 @@ def get_user(
         DocumentBrief(
             id=d.id,
             doc_type=d.doc_type.value if hasattr(d.doc_type, "value") else d.doc_type,
+            original_filename=d.original_filename,
             status=d.status,
             uploaded_at=d.created_at,
             expiry_date=d.expiry_date,
@@ -238,12 +241,14 @@ def get_user(
 def update_user(
     user_id: int,
     body: UpdateUserBody,
-    _: User = Depends(require_super_admin),
+    current_user: User = Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    old_role = user.role
 
     if body.full_name is not None:
         user.full_name = body.full_name
@@ -266,6 +271,17 @@ def update_user(
                 user_id=user.id,
                 facility_role=FacilityRole.staff,
             ))
+
+    # Log role change if the role was updated
+    if body.role is not None and body.role != old_role:
+        log_activity(
+            db,
+            actor=current_user,
+            action=ActivityActionType.role_updated,
+            description=f"Changed {user.full_name}'s role from {old_role.value} to {body.role.value}",
+            entity_type="role",
+            entity_id=user.id,
+        )
 
     db.commit()
     db.refresh(user)

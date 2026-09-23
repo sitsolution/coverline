@@ -15,6 +15,12 @@ pydantic-settings==2.6.1
 email-validator==2.2.0
 python-dotenv==1.0.1
 
+# ── Push notifications ────────────────────────────────────────────────────────
+# Expo Push API client (handles FCM + APNs for mobile)
+exponent-server-sdk==2.1.0
+# VAPID Web Push for admin browser notifications
+pywebpush==2.0.0
+
 # Dev / test
 pytest==8.3.4
 httpx==0.28.1

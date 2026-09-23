@@ -38,6 +38,20 @@ class Settings(BaseSettings):
     OTP_MAX_ATTEMPTS: int = 5
     OTP_RESEND_COOLDOWN_SECONDS: int = 60
 
+    # ── Push Notifications ────────────────────────────────────────────────────
+    # Expo Push — optional access token raises rate limits on the Expo push API.
+    # Leave blank during development; add once you have the Expo project set up.
+    EXPO_ACCESS_TOKEN: str = ""
+
+    # VAPID keys for Web Push (admin browser notifications).
+    # Generate once with:
+    #   pip install pywebpush
+    #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); print('PRIVATE:', v.private_key.private_bytes_raw().hex()); print('PUBLIC:', v.public_key_str)"
+    # Or use the online tool at https://vapidkeys.com
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_CLAIMS_EMAIL: str = "admin@coverline.in"
+
     # ── Business rules ────────────────────────────────────────────────────────
     # How close to shift start a confirmed application may still be cancelled.
     CANCELLATION_CUTOFF_HOURS: int = 24

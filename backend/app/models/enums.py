@@ -138,6 +138,10 @@ class ActivityActionType(str, enum.Enum):
     # User management (Super Admin)
     user_added = "user_added"
     user_deactivated = "user_deactivated"
+    role_updated = "role_updated"
+
+    # Facility management (Super Admin)
+    facility_created = "facility_created"
 
 
 class InvoiceStatus(str, enum.Enum):

@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 from app.api.v1.endpoints.superadmin.deps import require_super_admin
 from app.core.deps import get_db
 from app.core.security import hash_password
-from app.models.enums import AdminPermission, FacilityRole, FacilityType, UserRole
+from app.models.enums import ActivityActionType, AdminPermission, FacilityRole, FacilityType, UserRole
 from app.models.facility import Facility, FacilityMember
 from app.models.user import User
 from app.schemas.base import CamelModel
+from app.services.activity_log import log_activity
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ class FacilityListItem(CamelModel):
     contact_email: Optional[str] = None
     staff_count: int
     admin_contact: str
+    is_active: bool
     created_at: datetime
 
 
@@ -89,6 +91,7 @@ def _build_item(fac: Facility, staff_count: int, admin_contact: str) -> Facility
         contact_email=fac.contact_email,
         staff_count=staff_count,
         admin_contact=admin_contact,
+        is_active=fac.is_active,
         created_at=fac.created_at,
     )
 
@@ -255,6 +258,15 @@ def create_facility(
         permissions=",".join(p.value for p in AdminPermission),
         accepted_at=None,
     ))
+
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.facility_created,
+        description=f"Created facility {facility.name} in {facility.city}",
+        entity_type="facility",
+        entity_id=facility.id,
+    )
 
     db.commit()
     db.refresh(facility)

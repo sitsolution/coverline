@@ -31,7 +31,7 @@ PERMISSION_LABELS = {
     AdminPermission.bookings: "Bookings",
     AdminPermission.documents: "Documents",
     AdminPermission.reports: "Reports",
-    AdminPermission.billing: "Billing",
+    AdminPermission.activity_log: "Activity Log",
 }
 
 

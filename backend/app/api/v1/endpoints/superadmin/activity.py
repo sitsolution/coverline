@@ -26,6 +26,8 @@ _CATEGORY_TO_ENTITY: dict[str, str] = {
     "bookings": "application",
     "documents": "document",
     "users": "user",
+    "roles": "role",
+    "facilities": "facility",
 }
 
 

@@ -12,7 +12,7 @@ from app.models.enums import ApplicationStatus, PaymentStatus, ShiftStatus, STAF
 from app.models.notification import Notification
 from app.models.payment import Payment
 from app.models.shift import Shift
-from app.models.support import DeviceToken
+from app.models.support import DeviceToken, WebPushSubscription
 from app.models.user import StaffProfile, User, UserSettings
 from app.schemas.base import MessageResponse
 from app.schemas.dashboard import DashboardResponse, DashboardStats
@@ -23,6 +23,8 @@ from app.schemas.user import (
     SettingsOut,
     SettingsUpdate,
     StaffProfileOut,
+    WebPushSubscriptionRegister,
+    WebPushSubscriptionRemove,
 )
 from app.services import serializers
 from app.services.labels import credential_label
@@ -217,6 +219,58 @@ def unregister_device_token(
     ).delete()
     db.commit()
     return MessageResponse(message="Device unregistered")
+
+
+@router.post("/me/web-push-subscription", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+def register_web_push_subscription(
+    payload: WebPushSubscriptionRegister,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save a browser Web Push subscription so admins receive browser push notifications."""
+    existing = (
+        db.query(WebPushSubscription)
+        .filter(WebPushSubscription.endpoint == payload.endpoint)
+        .first()
+    )
+    if existing is not None:
+        existing.user_id = current_user.id
+        existing.p256dh_key = payload.p256dh_key
+        existing.auth_key = payload.auth_key
+        existing.is_active = True
+    else:
+        db.add(
+            WebPushSubscription(
+                user_id=current_user.id,
+                endpoint=payload.endpoint,
+                p256dh_key=payload.p256dh_key,
+                auth_key=payload.auth_key,
+            )
+        )
+    db.commit()
+    return MessageResponse(message="Web push subscription registered")
+
+
+@router.delete("/me/web-push-subscription", response_model=MessageResponse)
+def unregister_web_push_subscription(
+    payload: WebPushSubscriptionRemove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    db.query(WebPushSubscription).filter(
+        WebPushSubscription.endpoint == payload.endpoint,
+        WebPushSubscription.user_id == current_user.id,
+    ).delete()
+    db.commit()
+    return MessageResponse(message="Web push subscription removed")
+
+
+@router.get("/me/vapid-public-key")
+def get_vapid_public_key():
+    """Return the VAPID public key so the browser can subscribe to Web Push."""
+    from app.core.config import settings
+
+    return {"vapidPublicKey": settings.VAPID_PUBLIC_KEY}
 
 
 @router.get("/me/dashboard", response_model=DashboardResponse)

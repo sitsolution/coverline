@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -32,6 +32,8 @@ class Facility(Base):
     description = Column(Text, nullable=True)
     logo_url = Column(String(500), nullable=True)
     rating = Column(Numeric(3, 2), default=0, nullable=False)
+
+    is_active = Column(Boolean, default=True, nullable=False, server_default="1")
 
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
