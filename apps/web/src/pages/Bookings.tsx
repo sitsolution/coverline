@@ -105,8 +105,8 @@ export default function Bookings() {
               <tr>
                 <th>Booking ID</th>
                 <SortTh label="Shift" column="shift" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                <SortTh label="Staff" column="staff" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                <SortTh label="Booked On" column="booked_on" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Doctor" column="staff" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                <SortTh label="Booking Date" column="booked_on" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <SortTh label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <th>Actions</th>
               </tr>

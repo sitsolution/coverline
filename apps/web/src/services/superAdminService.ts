@@ -38,6 +38,7 @@ export interface SAUserDetail extends SAUser {
   documents: Array<{
     id: number;
     docType: string;
+    originalFilename: string;
     status: string;
     uploadedAt: string;
     expiryDate: string | null;
@@ -58,6 +59,7 @@ export interface SAFacility {
   contactEmail: string | null;
   staffCount: number;
   adminContact: string;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -157,6 +159,11 @@ const superAdminService = {
 
   resetUserPassword: (id: number) =>
     api.post(`/superadmin/users/${id}/reset-password`).then((r) => r.data as { message: string }),
+
+  uploadUserDocument: (userId: number, form: FormData) =>
+    api.post(`/superadmin/users/${userId}/documents`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data),
 
   getFacilities: (params?: object) =>
     api.get('/superadmin/facilities', { params }).then((r) => r.data as SAFacilitiesResponse),

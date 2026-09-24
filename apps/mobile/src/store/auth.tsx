@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  registerForPushNotifications,
+  unregisterPushNotifications,
+} from '../services/pushNotificationService';
 
 const KEYS = {
   accessToken: 'access_token',
@@ -83,9 +87,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isVerified: data.isVerified,
       isLoading: false,
     });
+    // Register for push after login — fire-and-forget, never blocks auth flow
+    registerForPushNotifications().catch(() => {});
   };
 
   const logout = async () => {
+    // Best-effort deregister before clearing the token (API call needs auth)
+    await unregisterPushNotifications().catch(() => {});
     await AsyncStorage.multiRemove(Object.values(KEYS));
     setState({
       accessToken: null,

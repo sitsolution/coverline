@@ -8,8 +8,13 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Image,
+  Modal,
+  StatusBar,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import userService from '../../services/userService';
+import { getFileUrl } from '../../services/api';
 import Screen from '../../components/ui/Screen';
 import Toast from '../../components/ui/Toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -133,6 +138,9 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [phone,      setPhone]      = useState('');
   const [dob,        setDob]        = useState<Date | null>(null);
   const [initials,   setInitials]   = useState('?');
+  const [avatarUrl,  setAvatarUrl]  = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [role,       setRole]       = useState('doctor');
   const [specialty,  setSpecialty]  = useState('');
   const [experience,         setExperience]         = useState(EXPERIENCE[0]);
@@ -150,6 +158,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         setEmail(data.user.email ?? '');
         setPhone(data.user.phone ?? '');
         setInitials(data.user.fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase());
+        setAvatarUrl(getFileUrl(data.user.avatarUrl));
         const userRole = data.user.role;
         setRole(userRole);
         const config = ROLE_SPECIALTY_CONFIG[userRole] ?? ROLE_SPECIALTY_CONFIG.doctor;
@@ -161,6 +170,30 @@ export default function EditProfileScreen({ navigation }: Props) {
       } catch {} finally { setLoading(false); }
     })();
   }, []);
+
+  const handleChangePhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const fileName = asset.uri.split('/').pop() ?? 'avatar.jpg';
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+
+    setUploadingPhoto(true);
+    try {
+      const updated = await userService.uploadAvatar({ uri: asset.uri, name: fileName, type: mimeType });
+      setAvatarUrl(getFileUrl(updated.user.avatarUrl));
+      setToast({ visible: true, message: 'Photo updated successfully', type: 'success' });
+    } catch (err: unknown) {
+      const msg = (err as any)?.response?.data?.detail ?? 'Failed to upload photo. Please try again.';
+      setToast({ visible: true, message: msg, type: 'error' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -205,13 +238,38 @@ export default function EditProfileScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
         {/* Avatar + Change Photo */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarLg}>
-            <Text style={styles.avatarLgText}>{initials}</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.changePhotoText}>Change Photo</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => avatarUrl && setPreviewVisible(true)}
+            disabled={!avatarUrl}
+          >
+            <View style={styles.avatarLg}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarLgText}>{initials}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={handleChangePhoto} disabled={uploadingPhoto}>
+            <Text style={styles.changePhotoText}>
+              {uploadingPhoto ? 'Uploading…' : 'Change Photo'}
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Fullscreen image preview */}
+        {avatarUrl && (
+          <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
+            <StatusBar backgroundColor="#000" barStyle="light-content" />
+            <View style={styles.previewOverlay}>
+              <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewVisible(false)} activeOpacity={0.8}>
+                <Text style={styles.previewCloseText}>✕</Text>
+              </TouchableOpacity>
+              <Image source={{ uri: avatarUrl }} style={styles.previewImage} resizeMode="contain" />
+            </View>
+          </Modal>
+        )}
 
         {/* Fields */}
         <InputField label="Full Name"    value={name}  onChangeText={setName} />
@@ -310,6 +368,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   avatarLgText: { fontSize: 20, fontWeight: '800', color: '#0F3D5C' },
+  avatarImage: { width: 64, height: 64, borderRadius: 16 },
+
+  // Fullscreen preview
+  previewOverlay: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  previewImage: { width: '100%', height: '100%' },
+  previewClose: {
+    position: 'absolute', top: 48, right: 20, zIndex: 10,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#000',
+    borderWidth: 1.5, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  previewCloseText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   changePhotoText: { fontSize: 11.5, fontWeight: '700', color: '#175E86' },
 
   // Field

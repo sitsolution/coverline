@@ -17,6 +17,9 @@ EXTENSIONS = {
     "application/pdf": ".pdf",
     "image/jpeg": ".jpg",
     "image/png": ".png",
+    "image/webp": ".webp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
 }
 
 
@@ -26,12 +29,20 @@ def upload_root() -> Path:
     return root
 
 
-def save_upload(file: UploadFile, user_id: int) -> Tuple[str, int]:
-    """Validate and persist an upload. Returns (relative_path, size_bytes)."""
-    if file.content_type not in settings.allowed_upload_types:
+_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+
+def save_upload(file: UploadFile, user_id: int, allowed_types: set | None = None) -> Tuple[str, int]:
+    """Validate and persist an upload. Returns (relative_path, size_bytes).
+
+    Pass ``allowed_types`` to override the default config list (e.g. for avatar
+    uploads which should accept WebP / HEIC in addition to the document types).
+    """
+    types = allowed_types if allowed_types is not None else set(settings.allowed_upload_types)
+    if file.content_type not in types:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type. Allowed: {', '.join(settings.allowed_upload_types)}",
+            detail=f"Unsupported file type. Allowed: {', '.join(sorted(types))}",
         )
 
     # Read in chunks and abort as soon as the cap is passed, so an oversized

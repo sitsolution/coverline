@@ -113,6 +113,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             facility_id=facility.id,
             user_id=user.id,
             facility_role=FacilityRole.super_admin,
+            accepted_at=datetime.now(timezone.utc),
         ))
 
     _seed_defaults(db, user)
@@ -143,7 +144,16 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
-    return TokenResponse(**_token_response(user))
+
+    debug_otp: str | None = None
+    if not user.is_verified:
+        # Issue a fresh OTP every time an unverified user logs in so they always
+        # have a working code to enter on the verification screen, regardless of
+        # whether they self-registered or were added by an admin.
+        debug_otp_code = otp_service.issue_code(db, user, OtpPurpose.signup_verification)
+        debug_otp = debug_otp_code if settings.expose_otp else None
+
+    return TokenResponse(**_token_response(user), debug_otp=debug_otp)
 
 
 @router.post("/refresh", response_model=TokenResponse)

@@ -154,6 +154,20 @@ const adminStaffService = {
   inviteStaff: async (payload: { fullName: string; email: string; phone?: string; role: string; specialty?: string }): Promise<void> => {
     await api.post('/admin/staff/invite', payload);
   },
+
+  createStaff: async (payload: {
+    fullName: string;
+    email: string;
+    phone: string;
+    role: string;
+    password: string;
+    credentialNumber?: string;
+    specialty?: string;
+    experience?: string;
+  }): Promise<{ id: number; name: string; email: string; role: string; roleLabel: string; isVerified: boolean }> => {
+    const { data } = await api.post('/admin/staff', payload);
+    return data;
+  },
 };
 
 export default adminStaffService;

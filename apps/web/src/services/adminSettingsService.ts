@@ -83,6 +83,29 @@ const adminSettingsService = {
   removeUser: async (memberId: number): Promise<void> => {
     await api.delete(`/admin/settings/users/${memberId}`);
   },
+
+  getNotificationSettings: async (): Promise<{ pushNotifications: boolean; smsAlerts: boolean; emailAlerts: boolean }> => {
+    const { data } = await api.get('/users/me/settings');
+    return data;
+  },
+
+  updateNotificationSettings: async (payload: Partial<{ pushNotifications: boolean; smsAlerts: boolean; emailAlerts: boolean }>): Promise<void> => {
+    await api.patch('/users/me/settings', payload);
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    await api.post('/auth/change-password', { currentPassword, newPassword });
+  },
+
+  getMyProfile: async (): Promise<{ fullName: string; email: string; phone?: string }> => {
+    const { data } = await api.get('/users/me');
+    return data.user;  // ProfileOut wraps user info under .user
+  },
+
+  updateMyProfile: async (payload: { fullName?: string }): Promise<{ fullName: string; email: string; phone?: string }> => {
+    const { data } = await api.patch('/users/me', payload);
+    return data.user;
+  },
 };
 
 export default adminSettingsService;

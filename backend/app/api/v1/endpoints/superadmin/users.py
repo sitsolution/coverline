@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import EmailStr
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -16,8 +18,9 @@ from app.models.enums import ActivityActionType, DocumentStatus, DocumentType, F
 from app.models.facility import Facility, FacilityMember
 from app.models.user import User, UserSettings
 from app.schemas.base import CamelModel, MessageResponse
-from app.services import otp as otp_service
+from app.services import otp as otp_service, storage
 from app.services.activity_log import log_activity
+from app.services.labels import DOCUMENT_TYPE_LABELS
 
 router = APIRouter()
 
@@ -326,3 +329,59 @@ def delete_user(
 
     user.is_active = False
     db.commit()
+
+
+@router.post("/{user_id}/documents", response_model=DocumentBrief, status_code=status.HTTP_201_CREATED)
+def upload_document_for_user(
+    user_id: int,
+    file: UploadFile = File(...),
+    docType: DocumentType = Form(...),
+    documentNumber: Optional[str] = Form(None),
+    issueDate: Optional[date] = Form(None),
+    expiryDate: Optional[date] = Form(None),
+    current_user: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Super admin uploads a document on behalf of a specific user."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if expiryDate and issueDate and expiryDate <= issueDate:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expiry date must be after the issue date")
+
+    relative_path, size = storage.save_upload(file, user_id)
+
+    document = Document(
+        user_id=user_id,
+        doc_type=docType,
+        document_number=documentNumber,
+        file_path=relative_path,
+        original_filename=file.filename or "upload",
+        content_type=file.content_type,
+        file_size=size,
+        issue_date=issueDate,
+        expiry_date=expiryDate,
+        status=DocumentStatus.pending,
+    )
+    db.add(document)
+
+    log_activity(
+        db,
+        actor=current_user,
+        action=ActivityActionType.document_uploaded,
+        description=f"Uploaded {DOCUMENT_TYPE_LABELS.get(docType, docType.value)} for {user.full_name}",
+        entity_type="document",
+        entity_id=None,
+    )
+    db.commit()
+    db.refresh(document)
+
+    return DocumentBrief(
+        id=document.id,
+        doc_type=document.doc_type.value if hasattr(document.doc_type, "value") else document.doc_type,
+        original_filename=document.original_filename,
+        status=document.status,
+        uploaded_at=document.created_at,
+        expiry_date=document.expiry_date,
+    )

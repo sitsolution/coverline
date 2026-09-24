@@ -1,24 +1,33 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 
-const NAV = [
-  { icon: '📊', label: 'Dashboard',  to: '/dashboard'  },
-  { icon: '🩺', label: 'Shifts',     to: '/shifts'     },
-  { icon: '👨‍⚕️', label: 'Staff',      to: '/staff'      },
-  { icon: '📋', label: 'Bookings',   to: '/bookings'   },
-  { icon: '📁', label: 'Documents',  to: '/documents'  },
-  { icon: '📈', label: 'Reports',      to: '/reports'       },
-  { icon: '🕓', label: 'Activity Log', to: '/activity-log'  },
-  { icon: '⚙️', label: 'Settings',    to: '/settings'      },
+// permission: null means always visible (no permission required)
+const NAV: { icon: string; label: string; to: string; permission: string | null }[] = [
+  { icon: '📊', label: 'Dashboard',   to: '/dashboard',    permission: null          },
+  { icon: '🩺', label: 'Shifts',      to: '/shifts',       permission: 'shifts'      },
+  { icon: '👨‍⚕️', label: 'Staff',       to: '/staff',        permission: 'staff'       },
+  { icon: '📋', label: 'Bookings',    to: '/bookings',     permission: 'bookings'    },
+  { icon: '📁', label: 'Documents',   to: '/documents',    permission: 'documents'   },
+  { icon: '📈', label: 'Reports',     to: '/reports',      permission: 'reports'     },
+  { icon: '🕓', label: 'Activity Log',to: '/activity-log', permission: 'activity_log'},
+  { icon: '⚙️', label: 'Settings',    to: '/settings',     permission: null          },
 ];
 
 export default function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, role, permissions } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // super_admin (platform) sees everything; facility_admin sees based on permissions
+  const canSee = (permission: string | null) => {
+    if (permission === null) return true;           // always-visible items
+    if (role === 'super_admin') return true;        // platform super admin
+    if (permissions === null) return true;          // still loading — show all
+    return permissions.includes(permission);
   };
 
   return (
@@ -33,7 +42,7 @@ export default function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex flex-col flex-1">
-        {NAV.map(({ icon, label, to }) => (
+        {NAV.filter(({ permission }) => canSee(permission)).map(({ icon, label, to }) => (
           <NavLink
             key={to}
             to={to}

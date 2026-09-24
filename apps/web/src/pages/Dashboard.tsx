@@ -98,7 +98,7 @@ export default function Dashboard() {
           <button onClick={() => navigate('/shifts/new')} className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 hover:bg-sky-2 transition-colors text-left">
             + Create New Shift
           </button>
-          <button onClick={() => navigate('/staff')} className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 hover:bg-sky-2 transition-colors text-left">
+          <button onClick={() => navigate('/staff/new')} className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] mb-2 hover:bg-sky-2 transition-colors text-left">
             + Add New Staff
           </button>
           <button onClick={() => navigate('/reports')} className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] hover:bg-sky-2 transition-colors text-left">

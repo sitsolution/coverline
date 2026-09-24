@@ -162,7 +162,7 @@ export default function ShiftsManagement() {
                 <SortTh label="Location" column="location" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <SortTh label="Specialty" column="specialty" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                 <SortTh label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                <th>Assigned Staff</th>
+                <th>Assigned Staff Member</th>
                 <th>Actions</th>
               </tr>
             </thead>

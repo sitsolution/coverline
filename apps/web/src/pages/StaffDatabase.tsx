@@ -89,6 +89,12 @@ export default function StaffDatabase() {
           <h1 className="font-display font-extrabold text-[16.5px] text-ink mb-[2px]">Locum Staff</h1>
           <p className="text-[11.5px] text-slate mb-4">{loading ? '…' : `${total} staff members`}</p>
         </div>
+        <Link
+          to="/staff/new"
+          className="bg-navy text-white text-[12.5px] font-bold px-4 py-[9px] rounded-[9px] hover:bg-navy-2 transition-colors"
+        >
+          + Add New Staff
+        </Link>
       </div>
 
       {/* Filter Row */}
@@ -114,9 +120,9 @@ export default function StaffDatabase() {
         </select>
         <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className={CHIP}>
           <option value="">Rating ▾</option>
+          <option value="4.0">4.0★ &amp; above</option>
           <option value="4.5">4.5★ &amp; above</option>
-          <option value="4.7">4.7★ &amp; above</option>
-          <option value="4.9">4.9★ &amp; above</option>
+          <option value="4.8">4.8★ &amp; above</option>
         </select>
         {hasFilters && (
           <button

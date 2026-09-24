@@ -46,16 +46,19 @@ const ACTION_LABELS: Record<string, string> = {
   booking_cancelled:      'Cancelled booking',
   user_added:             'Added user',
   user_deactivated:       'Deactivated user',
+  role_updated:           'Updated role',
+  facility_created:       'Created facility',
 };
 
 // ─── Filter chips ─────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { key: 'all',       label: 'All Activity' },
-  { key: 'shifts',    label: 'Shifts'       },
-  { key: 'bookings',  label: 'Bookings'     },
-  { key: 'documents', label: 'Documents'    },
-  { key: 'users',     label: 'Users'        },
+  { key: 'all',        label: 'All Activity' },
+  { key: 'users',      label: 'Users'        },
+  { key: 'roles',      label: 'Roles'        },
+  { key: 'facilities', label: 'Facilities'   },
+  { key: 'shifts',     label: 'Shifts'       },
+  { key: 'documents',  label: 'Documents'    },
 ];
 
 function categoryToApiParam(key: string): string | undefined {
@@ -117,6 +120,7 @@ export default function SAActivityLog() {
   }, [category, sortBy, sortOrder]);
 
   const handleCategoryChange = (key: string) => {
+    if (key === category) return;
     setItems([]);
     setTotal(0);
     setCategory(key);

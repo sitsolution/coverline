@@ -75,4 +75,14 @@ api.interceptors.response.use(
   }
 );
 
+// Server root (strips /api/v1 suffix) — used to build URLs for uploaded files
+export const SERVER_ROOT = BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+/** Build full URL for a server-stored file path like /uploads/1/abc.jpg */
+export function getFileUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `${SERVER_ROOT}${path}`;
+}
+
 export default api;

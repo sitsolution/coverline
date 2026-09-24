@@ -1,10 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import Panel from '../../components/ui/Panel';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import superAdminService, { SAFacility, SAUserDetail } from '../../services/superAdminService';
+
+const DOC_TYPE_OPTIONS = [
+  { value: 'medical_license',        label: 'Medical License'        },
+  { value: 'nursing_registration',   label: 'Nursing Registration'   },
+  { value: 'ot_certification',       label: 'OT Certification'       },
+  { value: 'bls_certification',      label: 'BLS Certification'      },
+  { value: 'acls_certification',     label: 'ACLS Certification'     },
+  { value: 'id_proof',               label: 'ID Proof'               },
+  { value: 'educational_certificate',label: 'Educational Certificate'},
+  { value: 'other',                  label: 'Other'                  },
+];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,6 +72,17 @@ export default function SAAddEditUser() {
   const [showResetModal, setShowResetModal]     = useState(false);
   const [resetting, setResetting]               = useState(false);
   const [facilities, setFacilities] = useState<SAFacility[]>([]);
+
+  // Upload document modal
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadDocType, setUploadDocType]     = useState('medical_license');
+  const [uploadDocNumber, setUploadDocNumber] = useState('');
+  const [uploadIssueDate, setUploadIssueDate] = useState('');
+  const [uploadExpiryDate, setUploadExpiryDate] = useState('');
+  const [uploadFile, setUploadFile]           = useState<File | null>(null);
+  const [uploading, setUploading]             = useState(false);
+  const [uploadError, setUploadError]         = useState('');
+  const fileInputRef                          = useRef<HTMLInputElement>(null);
 
   // Form fields
   const [fullName, setFullName]   = useState('');
@@ -159,6 +181,42 @@ export default function SAAddEditUser() {
     }
   };
 
+  const openUploadModal = () => {
+    setUploadDocType('medical_license');
+    setUploadDocNumber('');
+    setUploadIssueDate('');
+    setUploadExpiryDate('');
+    setUploadFile(null);
+    setUploadError('');
+    setShowUploadModal(true);
+  };
+
+  const handleUploadDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile || !id) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const form = new FormData();
+      form.append('file', uploadFile);
+      form.append('docType', uploadDocType);
+      if (uploadDocNumber) form.append('documentNumber', uploadDocNumber);
+      if (uploadIssueDate)  form.append('issueDate', uploadIssueDate);
+      if (uploadExpiryDate) form.append('expiryDate', uploadExpiryDate);
+      await superAdminService.uploadUserDocument(parseInt(id, 10), form);
+      // Refresh user to update documents table
+      const updated = await superAdminService.getUser(parseInt(id, 10));
+      setUser(updated);
+      setShowUploadModal(false);
+      setSuccess('Document uploaded successfully.');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setUploadError(detail ?? 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const isSuperAdmin = user?.role === 'super_admin';
   const pageTitle = isEdit ? `Edit User — ${user?.fullName ?? '…'}` : 'Add New User';
 
@@ -241,7 +299,18 @@ export default function SAAddEditUser() {
 
               {/* Documents (edit mode only) */}
               {isEdit && (
-                <Panel title="Documents & Certificates">
+                <Panel
+                  title="Documents & Certificates"
+                  action={
+                    <button
+                      type="button"
+                      onClick={openUploadModal}
+                      className="bg-sky text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px] hover:bg-sky-2 transition-colors"
+                    >
+                      + Upload Document
+                    </button>
+                  }
+                >
                   {(user?.documents ?? []).length === 0 ? (
                     <p className="text-[12px] text-slate text-center py-4">No documents uploaded.</p>
                   ) : (
@@ -259,7 +328,7 @@ export default function SAAddEditUser() {
                         <tbody>
                           {(user?.documents ?? []).map((doc) => (
                             <tr key={doc.id}>
-                              <td className="font-semibold text-[11.5px]">#{doc.id}</td>
+                              <td className="font-semibold text-[11.5px]">{doc.originalFilename}</td>
                               <td className="text-[11.5px]">{doc.docType.replace(/_/g, ' ')}</td>
                               <td className="text-[11.5px]">{formatDate(doc.uploadedAt)}</td>
                               <td className="text-[11.5px]">{formatDate(doc.expiryDate)}</td>
@@ -358,6 +427,101 @@ export default function SAAddEditUser() {
           onConfirm={handleDeleteConfirm}
           onCancel={() => setShowDeleteModal(false)}
         />
+      )}
+
+      {/* Upload document modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-[14px] shadow-xl w-full max-w-[460px] mx-4">
+            <div className="px-5 pt-5 pb-3 border-b border-line flex items-center justify-between">
+              <span className="font-display font-extrabold text-[15px] text-ink">Upload Document</span>
+              <button
+                type="button"
+                onClick={() => setShowUploadModal(false)}
+                className="text-slate hover:text-ink text-[18px] leading-none bg-transparent outline-none cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleUploadDocument} className="px-5 py-4 flex flex-col gap-[13px]">
+              {uploadError && (
+                <div className="px-3 py-[8px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
+                  {uploadError}
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Document Type *</label>
+                <select
+                  value={uploadDocType}
+                  onChange={(e) => setUploadDocType(e.target.value)}
+                  className={inputCls + ' cursor-pointer'}
+                  required
+                >
+                  {DOC_TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>File *</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  required
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-[12px] text-ink file:mr-3 file:py-[6px] file:px-3 file:rounded-[7px] file:border-0 file:bg-navy file:text-white file:text-[11.5px] file:font-semibold file:cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Document Number (optional)</label>
+                <input
+                  type="text"
+                  value={uploadDocNumber}
+                  onChange={(e) => setUploadDocNumber(e.target.value)}
+                  placeholder="e.g. MCI-123456"
+                  className={inputCls}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Issue Date (optional)</label>
+                  <input
+                    type="date"
+                    value={uploadIssueDate}
+                    onChange={(e) => setUploadIssueDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Expiry Date (optional)</label>
+                  <input
+                    type="date"
+                    value={uploadExpiryDate}
+                    onChange={(e) => setUploadExpiryDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadFile}
+                  className="flex-1 bg-navy text-white text-[13px] font-bold py-[10px] rounded-[10px] disabled:opacity-60 hover:bg-navy-2 transition-colors"
+                >
+                  {uploading ? 'Uploading…' : 'Upload'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="flex-1 border-[1.5px] border-line text-slate text-[13px] font-bold py-[10px] rounded-[10px] hover:border-navy-2 hover:text-ink transition-colors bg-transparent"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </SuperAdminLayout>
   );

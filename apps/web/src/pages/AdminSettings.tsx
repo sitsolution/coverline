@@ -7,12 +7,69 @@ import Modal from '../components/ui/Modal';
 import adminSettingsService, { FacilityProfileOut, AdminUserRow } from '../services/adminSettingsService';
 import { useAuth } from '../store/auth';
 
+const SUPPORT_EMAIL = 'info@coverline.app';
+
+const NOTIFICATION_ITEMS: { key: 'pushNotifications' | 'smsAlerts' | 'emailAlerts'; label: string; desc: string }[] = [
+  { key: 'pushNotifications', label: 'Push Notifications', desc: 'Browser and in-app alerts for new applications, bookings, and updates' },
+  { key: 'smsAlerts',         label: 'SMS Alerts',         desc: 'Text message alerts for urgent shift confirmations and changes' },
+  { key: 'emailAlerts',       label: 'Email Alerts',       desc: 'Email summaries and notifications sent to your account email' },
+];
+
+const SHIFT_DURATION_OPTIONS = ['4 hours', '6 hours', '8 hours', '10 hours', '12 hours'];
+const BUFFER_TIME_OPTIONS    = ['No buffer', '30 minutes', '1 hour', '2 hours', '4 hours'];
+const MAX_SHIFTS_OPTIONS     = ['No limit', '3 shifts', '5 shifts', '7 shifts', '10 shifts'];
+
+function PasswordInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-[10px] pr-12 border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(v => !v)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate hover:text-ink"
+        tabIndex={-1}
+        aria-label={show ? 'Hide password' : 'Show password'}
+      >
+        {show ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative inline-flex h-[22px] w-[40px] flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${enabled ? 'bg-navy' : 'bg-line'}`}
+    >
+      <span
+        className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-[18px]' : 'translate-x-0'}`}
+      />
+    </button>
+  );
+}
+
 const NAV_ITEMS = [
   'Facility Profile',
   'Users & Permissions',
   'Shift Settings',
   'Notification Settings',
-  'Payment Settings',
   'Integrations',
   'Security',
   'Help & Support',
@@ -35,7 +92,85 @@ export default function AdminSettings() {
   const [confirmRemove, setConfirmRemove] = useState<AdminUserRow | null>(null);
   const [removeError, setRemoveError] = useState('');
 
-  // Editable fields
+  // Notification toggles — loaded from backend
+  const [notifs, setNotifs] = useState({ pushNotifications: true, smsAlerts: true, emailAlerts: false });
+  const [notifsLoaded, setNotifsLoaded] = useState(false);
+  const toggleNotif = async (key: 'pushNotifications' | 'smsAlerts' | 'emailAlerts') => {
+    const next = { ...notifs, [key]: !notifs[key] };
+    setNotifs(next);
+    try {
+      await adminSettingsService.updateNotificationSettings({ [key]: next[key] });
+    } catch {
+      setNotifs(notifs); // revert on failure
+    }
+  };
+
+  // Change password
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const handleChangePassword = async () => {
+    if (!currentPw || !newPw || !confirmPw) { setPwError('All fields are required.'); return; }
+    if (newPw !== confirmPw) { setPwError('New passwords do not match.'); return; }
+    if (newPw.length < 8) { setPwError('New password must be at least 8 characters.'); return; }
+    if (!/[A-Z]/.test(newPw) || !/[a-z]/.test(newPw) || !/[0-9]/.test(newPw)) {
+      setPwError('Password must contain uppercase, lowercase, and a number.'); return;
+    }
+    setPwSaving(true); setPwError('');
+    try {
+      await adminSettingsService.changePassword(currentPw, newPw);
+      setPwSuccess(true);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      setTimeout(() => setPwSuccess(false), 3000);
+    } catch (err: any) {
+      setPwError(err?.response?.data?.detail ?? 'Failed to change password.');
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  // Shift settings
+  const [defaultDuration, setDefaultDuration] = useState('8 hours');
+  const [bufferTime, setBufferTime] = useState('No buffer');
+  const [maxShifts, setMaxShifts] = useState('No limit');
+
+  // Copy email state
+  const [copied, setCopied] = useState(false);
+  const copyEmail = () => {
+    navigator.clipboard.writeText(SUPPORT_EMAIL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Account (personal) fields
+  const [acctName, setAcctName] = useState('');
+  const [acctEmail, setAcctEmail] = useState('');
+  const [acctPhone, setAcctPhone] = useState('');
+  const [acctSaving, setAcctSaving] = useState(false);
+  const [acctSaved, setAcctSaved] = useState(false);
+  const [acctError, setAcctError] = useState('');
+
+  const handleSaveAccount = async () => {
+    if (!acctName.trim() || acctName.trim().length < 3) {
+      setAcctError('Full name must be at least 3 characters.'); return;
+    }
+    setAcctSaving(true); setAcctError(''); setAcctSaved(false);
+    try {
+      const updated = await adminSettingsService.updateMyProfile({ fullName: acctName.trim() });
+      setAcctName(updated.fullName);
+      setAcctSaved(true);
+      setTimeout(() => setAcctSaved(false), 3000);
+    } catch (err: any) {
+      setAcctError(err?.response?.data?.detail ?? 'Failed to save account details.');
+    } finally {
+      setAcctSaving(false);
+    }
+  };
+
+  // Facility editable fields
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -43,16 +178,26 @@ export default function AdminSettings() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const p = await adminSettingsService.getFacility();
+    // Load facility and personal profile independently — one failing won't blank the other
+    const [facilityResult, profileResult] = await Promise.allSettled([
+      adminSettingsService.getFacility(),
+      adminSettingsService.getMyProfile(),
+    ]);
+    if (facilityResult.status === 'fulfilled') {
+      const p = facilityResult.value;
       setProfile(p);
       setName(p.name);
       setAddress(p.address ?? '');
       setContactEmail(p.contactEmail ?? '');
       setDescription(p.description ?? '');
-    } catch {} finally {
-      setLoading(false);
     }
+    if (profileResult.status === 'fulfilled') {
+      const me = profileResult.value;
+      setAcctName(me.fullName);
+      setAcctEmail(me.email);
+      setAcctPhone(me.phone ?? '');
+    }
+    setLoading(false);
   }, []);
 
   const loadUsers = useCallback(async () => {
@@ -69,7 +214,12 @@ export default function AdminSettings() {
 
   useEffect(() => {
     if (activeNav === 'Users & Permissions') loadUsers();
-  }, [activeNav, loadUsers]);
+    if (activeNav === 'Notification Settings' && !notifsLoaded) {
+      adminSettingsService.getNotificationSettings()
+        .then(s => { setNotifs(s); setNotifsLoaded(true); })
+        .catch(() => {});
+    }
+  }, [activeNav, loadUsers, notifsLoaded]);
 
   const handleRemoveConfirmed = async () => {
     if (!confirmRemove) return;
@@ -132,94 +282,130 @@ export default function AdminSettings() {
 
         {/* Right content */}
         {activeNav === 'Facility Profile' && (
-          <Panel title="Facility Profile">
-            {loading ? (
-              <p className="text-[12px] text-slate">Loading…</p>
-            ) : (
-              <>
-                <div className="mb-[13px]">
-                  <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Facility Name</label>
-                  <input
-                    value={name}
-                    onChange={(e) => { setName(e.target.value); setFieldErrors(p => ({ ...p, name: '' })); }}
-                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.name ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
-                  />
-                  {fieldErrors.name && <p className="text-[11px] text-urgent mt-1">{fieldErrors.name}</p>}
-                </div>
-                <div className="mb-[13px]">
-                  <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Address</label>
-                  <input
-                    value={address}
-                    onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => ({ ...p, address: '' })); }}
-                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.address ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
-                  />
-                  {fieldErrors.address && <p className="text-[11px] text-urgent mt-1">{fieldErrors.address}</p>}
-                </div>
-                <div className="mb-[13px]">
-                  <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Contact Email</label>
-                  <input
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => { setContactEmail(e.target.value); setFieldErrors(p => ({ ...p, contactEmail: '' })); }}
-                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.contactEmail ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
-                  />
-                  {fieldErrors.contactEmail && <p className="text-[11px] text-urgent mt-1">{fieldErrors.contactEmail}</p>}
-                </div>
-                <div className="mb-[13px]">
-                  <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Description</label>
-                  <input
-                    value={description}
-                    onChange={(e) => { setDescription(e.target.value); setFieldErrors(p => ({ ...p, description: '' })); }}
-                    className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.description ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
-                  />
-                  {fieldErrors.description && <p className="text-[11px] text-urgent mt-1">{fieldErrors.description}</p>}
-                </div>
+          <div className="flex flex-col gap-4">
+            {/* Your Account */}
+            <Panel title="Your Account">
+              {loading ? <p className="text-[12px] text-slate">Loading…</p> : (
+                <>
+                  <div className="mb-[13px]">
+                    <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Full Name</label>
+                    <input
+                      value={acctName}
+                      onChange={(e) => { setAcctName(e.target.value); setAcctError(''); }}
+                      className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-[10px] mb-[13px]">
+                    <div>
+                      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Email Address</label>
+                      <input
+                        value={acctEmail}
+                        disabled
+                        className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-slate bg-paper cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Phone Number</label>
+                      <input
+                        value={acctPhone}
+                        disabled
+                        className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-slate bg-paper cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate mb-[13px] -mt-[8px]">Email and phone cannot be changed. Contact support if needed.</p>
+                  {acctError && <p className="text-[11px] text-urgent font-semibold mb-2">{acctError}</p>}
+                  <button
+                    onClick={handleSaveAccount}
+                    disabled={acctSaving}
+                    className="bg-navy text-white text-[13px] font-bold px-4 py-[11px] rounded-[10px] disabled:opacity-60"
+                  >
+                    {acctSaving ? 'Saving…' : acctSaved ? 'Saved ✓' : 'Save Account'}
+                  </button>
+                </>
+              )}
+            </Panel>
 
-                {saveError && <p className="text-[11px] text-urgent font-semibold mb-2">{saveError}</p>}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-navy text-white text-[13px] font-bold px-4 py-[11px] rounded-[10px] disabled:opacity-60"
-                >
-                  {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Changes'}
-                </button>
-
-                {profile && (
-                  <p className="text-[11px] text-slate mt-3">
-                    {profile.city}{profile.state ? `, ${profile.state}` : ''} · Rating: {profile.rating.toFixed(1)}★
-                  </p>
-                )}
-              </>
-            )}
-
-            {/* Quick links */}
-            <div className="mt-4 pt-4 border-t border-line flex items-center gap-3">
-              {/* <Link
-                to="/billing"
-                className="border-[1.5px] border-navy text-navy text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
-              >
-                💳 Invoices &amp; Billing
-              </Link> */}
-              <Link
-                to="/settings/add-user"
-                className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
-              >
-                + Add Admin User
-              </Link>
-            </div>
-          </Panel>
+            {/* Facility Details */}
+            <Panel title="Facility Details">
+              {loading ? <p className="text-[12px] text-slate">Loading…</p> : (
+                <>
+                  <div className="mb-[13px]">
+                    <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Facility Name</label>
+                    <input
+                      value={name}
+                      onChange={(e) => { setName(e.target.value); setFieldErrors(p => ({ ...p, name: '' })); }}
+                      className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.name ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
+                    />
+                    {fieldErrors.name && <p className="text-[11px] text-urgent mt-1">{fieldErrors.name}</p>}
+                  </div>
+                  <div className="mb-[13px]">
+                    <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Address</label>
+                    <input
+                      value={address}
+                      onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => ({ ...p, address: '' })); }}
+                      className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.address ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
+                    />
+                    {fieldErrors.address && <p className="text-[11px] text-urgent mt-1">{fieldErrors.address}</p>}
+                  </div>
+                  <div className="mb-[13px]">
+                    <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Contact Email</label>
+                    <input
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => { setContactEmail(e.target.value); setFieldErrors(p => ({ ...p, contactEmail: '' })); }}
+                      className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.contactEmail ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
+                    />
+                    {fieldErrors.contactEmail && <p className="text-[11px] text-urgent mt-1">{fieldErrors.contactEmail}</p>}
+                  </div>
+                  <div className="mb-[13px]">
+                    <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Description</label>
+                    <input
+                      value={description}
+                      onChange={(e) => { setDescription(e.target.value); setFieldErrors(p => ({ ...p, description: '' })); }}
+                      className={`w-full px-3 py-[11px] border-[1.4px] rounded-[9px] text-[13px] text-ink outline-none bg-white ${fieldErrors.description ? 'border-urgent focus:border-urgent' : 'border-line focus:border-navy-2'}`}
+                    />
+                    {fieldErrors.description && <p className="text-[11px] text-urgent mt-1">{fieldErrors.description}</p>}
+                  </div>
+                  {saveError && <p className="text-[11px] text-urgent font-semibold mb-2">{saveError}</p>}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="bg-navy text-white text-[13px] font-bold px-4 py-[11px] rounded-[10px] disabled:opacity-60"
+                    >
+                      {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Facility'}
+                    </button>
+                    <Link
+                      to="/settings/add-user"
+                      className="bg-transparent border border-navy text-navy text-[12px] font-bold px-3 py-[10px] rounded-[10px]"
+                    >
+                      + Add Admin User
+                    </Link>
+                  </div>
+                  {profile && (
+                    <p className="text-[11px] text-slate mt-3">
+                      {profile.city}{profile.state ? `, ${profile.state}` : ''} · Rating: {profile.rating.toFixed(1)}★
+                    </p>
+                  )}
+                </>
+              )}
+            </Panel>
+          </div>
         )}
 
         {activeNav === 'Users & Permissions' && (
           <Panel title="Users & Permissions">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[12px] text-slate">Admin users for your facility.</p>
-              <Link
-                to="/settings/add-user"
-                className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
-              >
-                + Invite Admin User
-              </Link>
+              {users.find(u => u.id === currentUserId)?.facilityRole === 'super_admin' && (
+                <Link
+                  to="/settings/add-user"
+                  className="bg-navy text-white text-[11.5px] font-bold px-3 py-[7px] rounded-[8px]"
+                >
+                  + Invite Admin User
+                </Link>
+              )}
             </div>
             {usersLoading ? (
               <p className="text-[12px] text-slate">Loading…</p>
@@ -244,7 +430,7 @@ export default function AdminSettings() {
                         <td className="text-slate">{u.email}</td>
                         <td>
                           <Badge
-                            label={u.facilityRole === 'super_admin' ? 'Super Admin' : 'Manager'}
+                            label={u.facilityRole === 'super_admin' ? 'Super Admin' : u.facilityRole === 'staff' ? 'Staff' : 'Manager'}
                             variant={u.facilityRole === 'super_admin' ? 'info' : 'neutral'}
                           />
                         </td>
@@ -255,7 +441,7 @@ export default function AdminSettings() {
                           />
                         </td>
                         <td className="text-[12px]">
-                          {u.id !== currentUserId && (
+                          {u.id !== currentUserId && u.facilityRole !== 'super_admin' && (
                             <span
                               onClick={() => { setConfirmRemove(u); setRemoveError(''); }}
                               className="text-urgent font-semibold cursor-pointer hover:underline"
@@ -273,9 +459,206 @@ export default function AdminSettings() {
           </Panel>
         )}
 
-        {!['Facility Profile', 'Users & Permissions'].includes(activeNav) && (
-          <Panel title={activeNav}>
-            <p className="text-[12px] text-slate py-4">This section is coming soon.</p>
+        {activeNav === 'Notification Settings' && (
+          <Panel title="Notification Settings">
+            <p className="text-[12px] text-slate mb-4">Choose how you want to receive notifications.</p>
+            {!notifsLoaded ? (
+              <p className="text-[12px] text-slate">Loading…</p>
+            ) : (
+              <div>
+                {NOTIFICATION_ITEMS.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between py-[13px] border-b border-line last:border-0">
+                    <div>
+                      <p className="text-[13px] font-semibold text-ink">{item.label}</p>
+                      <p className="text-[11.5px] text-slate mt-[2px]">{item.desc}</p>
+                    </div>
+                    <Toggle enabled={notifs[item.key]} onToggle={() => toggleNotif(item.key)} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        )}
+
+        {activeNav === 'Shift Settings' && (
+          <Panel title="Shift Settings">
+            <p className="text-[12px] text-slate mb-4">Default values applied when creating new shifts. You can override these per shift.</p>
+            <div className="mb-[13px]">
+              <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Default Shift Duration</label>
+              <select
+                value={defaultDuration}
+                onChange={(e) => setDefaultDuration(e.target.value)}
+                className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white appearance-none"
+              >
+                {SHIFT_DURATION_OPTIONS.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="mb-[13px]">
+              <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Buffer Time Between Shifts</label>
+              <select
+                value={bufferTime}
+                onChange={(e) => setBufferTime(e.target.value)}
+                className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white appearance-none"
+              >
+                {BUFFER_TIME_OPTIONS.map(o => <option key={o}>{o}</option>)}
+              </select>
+              <p className="text-[11px] text-slate mt-[5px]">Minimum gap required between consecutive shifts for the same staff member.</p>
+            </div>
+            <div className="mb-[18px]">
+              <label className="block text-[11.5px] font-bold text-slate mb-[6px]">Max Shifts Per Staff Per Week</label>
+              <select
+                value={maxShifts}
+                onChange={(e) => setMaxShifts(e.target.value)}
+                className="w-full px-3 py-[11px] border-[1.4px] border-line rounded-[9px] text-[13px] text-ink outline-none focus:border-navy-2 bg-white appearance-none"
+              >
+                {MAX_SHIFTS_OPTIONS.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-[10px] bg-[#F0F4FA] rounded-[8px]">
+              <span className="text-[13px]">ℹ️</span>
+              <p className="text-[11.5px] text-slate">Full shift rules configuration coming in the next update.</p>
+            </div>
+          </Panel>
+        )}
+
+        {activeNav === 'Integrations' && (
+          <Panel title="Integrations">
+            <p className="text-[12px] text-slate mb-4">Connect Coverline with your existing tools.</p>
+
+            {/* Export */}
+            <div className="border border-line rounded-[10px] p-4 mb-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-ink mb-[3px]">Export Data (CSV)</p>
+                  <p className="text-[11.5px] text-slate">Download your shifts, bookings, or staff list as a spreadsheet.</p>
+                </div>
+                <a
+                  href="/reports"
+                  className="text-[11.5px] font-bold text-navy-2 border border-navy-2 px-3 py-[6px] rounded-[7px] hover:bg-navy hover:text-white transition-colors whitespace-nowrap ml-4"
+                >
+                  Go to Reports
+                </a>
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div className="border border-line rounded-[10px] p-4 mb-3 opacity-60">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-ink mb-[3px]">Calendar Sync</p>
+                  <p className="text-[11.5px] text-slate">Sync confirmed shifts with Google Calendar or Outlook.</p>
+                </div>
+                <span className="text-[11px] font-semibold text-slate border border-line px-2 py-[5px] rounded-[6px] whitespace-nowrap ml-4">Coming Soon</span>
+              </div>
+            </div>
+
+            {/* Payroll */}
+            <div className="border border-line rounded-[10px] p-4 opacity-60">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-ink mb-[3px]">Payroll Export</p>
+                  <p className="text-[11.5px] text-slate">Export completed shift hours to your payroll provider.</p>
+                </div>
+                <span className="text-[11px] font-semibold text-slate border border-line px-2 py-[5px] rounded-[6px] whitespace-nowrap ml-4">Coming Soon</span>
+              </div>
+            </div>
+          </Panel>
+        )}
+
+        {activeNav === 'Security' && (
+          <Panel title="Security">
+            <p className="text-[12px] text-slate mb-4">Manage access and account security settings.</p>
+
+            {/* Change Password — inline form */}
+            <div className="border border-line rounded-[10px] p-4 mb-3">
+              <p className="text-[13px] font-bold text-ink mb-[3px]">Change Password</p>
+              <p className="text-[11.5px] text-slate mb-4">Update your account password regularly to keep your account safe.</p>
+              {pwSuccess && (
+                <div className="mb-3 px-3 py-[9px] bg-[#E3F5EC] border border-[#1F8A5F] rounded-[8px] text-[11.5px] text-[#1F8A5F] font-semibold">
+                  Password changed successfully.
+                </div>
+              )}
+              {pwError && (
+                <div className="mb-3 px-3 py-[9px] bg-urgent-bg border border-urgent rounded-[8px] text-[11.5px] text-urgent font-semibold">
+                  {pwError}
+                </div>
+              )}
+              <div className="mb-[10px]">
+                <label className="block text-[11.5px] font-bold text-slate mb-[5px]">Current Password</label>
+                <PasswordInput value={currentPw} onChange={(v) => { setCurrentPw(v); setPwError(''); }} placeholder="Enter current password" />
+              </div>
+              <div className="mb-[10px]">
+                <label className="block text-[11.5px] font-bold text-slate mb-[5px]">New Password</label>
+                <PasswordInput value={newPw} onChange={(v) => { setNewPw(v); setPwError(''); }} placeholder="Min. 8 chars, uppercase, number" />
+              </div>
+              <div className="mb-4">
+                <label className="block text-[11.5px] font-bold text-slate mb-[5px]">Confirm New Password</label>
+                <PasswordInput value={confirmPw} onChange={(v) => { setConfirmPw(v); setPwError(''); }} placeholder="Repeat new password" />
+              </div>
+              <button
+                onClick={handleChangePassword}
+                disabled={pwSaving}
+                className="bg-navy text-white text-[12.5px] font-bold px-4 py-[10px] rounded-[9px] disabled:opacity-60"
+              >
+                {pwSaving ? 'Saving…' : 'Update Password'}
+              </button>
+            </div>
+
+            {/* 2FA */}
+            <div className="border border-line rounded-[10px] p-4 mb-3 opacity-60">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-ink mb-[3px]">Two-Factor Authentication</p>
+                  <p className="text-[11.5px] text-slate">Add an extra layer of security with an authenticator app or SMS code.</p>
+                </div>
+                <span className="text-[11px] font-semibold text-slate border border-line px-2 py-[5px] rounded-[6px] whitespace-nowrap ml-4">Coming Soon</span>
+              </div>
+            </div>
+
+            {/* Session timeout */}
+            <div className="border border-line rounded-[10px] p-4 opacity-60">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-bold text-ink mb-[3px]">Session Timeout</p>
+                  <p className="text-[11.5px] text-slate">Automatically log out after a period of inactivity.</p>
+                </div>
+                <span className="text-[11px] font-semibold text-slate border border-line px-2 py-[5px] rounded-[6px] whitespace-nowrap ml-4">Coming Soon</span>
+              </div>
+            </div>
+          </Panel>
+        )}
+
+        {activeNav === 'Help & Support' && (
+          <Panel title="Help & Support">
+            <p className="text-[12px] text-slate mb-5">Need help? Reach out to the Coverline support team.</p>
+
+            {/* Email card */}
+            <div className="border border-line rounded-[10px] p-4 mb-4">
+              <p className="text-[11.5px] font-bold text-slate mb-[6px]">Support Email</p>
+              <div className="flex items-center gap-3">
+                <p className="text-[14px] font-bold text-ink">{SUPPORT_EMAIL}</p>
+                <button
+                  type="button"
+                  onClick={copyEmail}
+                  className="text-[11px] font-semibold text-navy-2 border border-navy-2 px-2 py-[5px] rounded-[6px] hover:bg-navy hover:text-white transition-colors"
+                >
+                  {copied ? 'Copied ✓' : 'Copy'}
+                </button>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="text-[11px] font-semibold text-white bg-navy px-2 py-[5px] rounded-[6px] hover:bg-navy-2 transition-colors"
+                >
+                  Send Email
+                </a>
+              </div>
+              <p className="text-[11.5px] text-slate mt-[8px]">Our team typically responds within 1 business day.</p>
+            </div>
+
+            {/* Response hours */}
+            <div className="flex items-center gap-2 px-3 py-[10px] bg-[#F0F4FA] rounded-[8px]">
+              <span className="text-[13px]">🕐</span>
+              <p className="text-[11.5px] text-slate">Support hours: Monday – Friday, 9:00 AM – 6:00 PM IST</p>
+            </div>
           </Panel>
         )}
       </div>

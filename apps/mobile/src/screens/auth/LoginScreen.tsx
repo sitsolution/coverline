@@ -36,7 +36,7 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       const data = await authService.login(email, password);
       if (!data.isVerified) {
-        navigation.navigate('OTPVerification', { email });
+        navigation.navigate('OTPVerification', { email, debugOtp: data.debugOtp ?? undefined });
       } else {
         await saveTokens({
           accessToken: data.accessToken,

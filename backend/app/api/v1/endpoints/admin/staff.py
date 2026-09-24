@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.admin import AdminContext, require_admin
 from app.core.config import settings
+from app.core.security import hash_password
 from app.models.application import Application
-from app.models.availability import Availability
+from app.models.availability import Availability, ShiftPreference
 from app.models.document import Document
 from app.models.enums import (
     STAFF_ROLES,
@@ -24,6 +25,8 @@ from app.models.shift import Shift
 from app.models.staff_meta import StaffNote, StaffReview
 from app.models.user import StaffProfile, User, UserSettings
 from app.schemas.admin.staff import (
+    StaffCreate,
+    StaffCreateResponse,
     StaffDetail,
     StaffFilterOptions,
     StaffInvite,
@@ -565,6 +568,77 @@ def delete_note(
     admin.db.delete(note)
     admin.db.commit()
     return MessageResponse(message="Note deleted")
+
+
+@router.post("", response_model=StaffCreateResponse, status_code=status.HTTP_201_CREATED)
+def create_staff(
+    payload: StaffCreate,
+    admin: AdminContext = Depends(require_admin(AdminPermission.staff)),
+):
+    """Admin manually creates a staff account.
+
+    The account is created with ``is_verified=False`` — the staff member must
+    log in on the mobile app and complete OTP verification to become verified.
+    """
+    db = admin.db
+
+    if payload.role not in STAFF_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only shift-working roles can be added as staff",
+        )
+    if db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if db.query(User).filter(User.phone == payload.phone).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already registered")
+
+    user = User(
+        email=payload.email,
+        phone=payload.phone,
+        full_name=payload.full_name,
+        hashed_password=hash_password(payload.password),
+        role=payload.role,
+        is_verified=False,
+        accepted_terms_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    db.flush()
+
+    db.add(
+        StaffProfile(
+            user_id=user.id,
+            credential_number=payload.credential_number,
+            specialty=payload.specialty,
+            experience=payload.experience,
+        )
+    )
+
+    # Seed defaults (settings + availability) same as self-registration
+    db.add(UserSettings(user_id=user.id))
+    db.add(ShiftPreference(user_id=user.id))
+    from app.services.labels import WEEKDAY_NAMES
+    for weekday in range(len(WEEKDAY_NAMES)):
+        db.add(
+            Availability(
+                user_id=user.id,
+                weekday=weekday,
+                is_available=weekday < 5,
+                start_time=datetime.strptime("09:00", "%H:%M").time(),
+                end_time=datetime.strptime("18:00", "%H:%M").time(),
+            )
+        )
+
+    db.commit()
+    db.refresh(user)
+
+    return StaffCreateResponse(
+        id=user.id,
+        name=user.full_name,
+        email=user.email,
+        role=user.role,
+        role_label=role_label(user.role),
+        is_verified=False,
+    )
 
 
 @router.post("/invite", response_model=MessageResponse, status_code=status.HTTP_202_ACCEPTED)

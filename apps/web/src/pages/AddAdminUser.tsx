@@ -20,7 +20,7 @@ export default function AddAdminUser() {
     adminSettingsService.getPermissions().then((opts) => {
       setPermissions(opts);
       // Default: check all except billing
-      setChecked(new Set(opts.filter(o => o.value !== 'billing').map(o => o.value)));
+      setChecked(new Set(opts.map(o => o.value)));
     }).catch(() => {
       // Fallback
       const fallback: PermissionOption[] = [
@@ -29,10 +29,10 @@ export default function AddAdminUser() {
         { value: 'bookings', label: 'Bookings' },
         { value: 'documents', label: 'Documents' },
         { value: 'reports', label: 'Reports' },
-        { value: 'billing', label: 'Billing' },
+        { value: 'activity_log', label: 'Activity Log' },
       ];
       setPermissions(fallback);
-      setChecked(new Set(fallback.filter(o => o.value !== 'billing').map(o => o.value)));
+      setChecked(new Set(fallback.map(o => o.value)));
     });
   }, []);
 

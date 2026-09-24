@@ -315,7 +315,10 @@ export default function SAFacilities() {
                     <td>{f.adminContact || <span className="text-slate">—</span>}</td>
                     <td>{f.staffCount.toLocaleString()}</td>
                     <td>
-                      <Badge label="Active" variant="success" />
+                      <Badge
+                        label={f.isActive ? 'Active' : 'Inactive'}
+                        variant={f.isActive ? 'success' : 'neutral'}
+                      />
                     </td>
                     <td>
                       <span className="text-[12px]">

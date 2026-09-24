@@ -124,6 +124,29 @@ class StaffInvite(CamelModel):
     specialty: Optional[str] = None
 
 
+class StaffCreate(CamelModel):
+    """Admin manually creates a staff account. Account is unverified until
+    the staff member logs in and completes OTP verification on mobile."""
+
+    full_name: str = Field(min_length=3, max_length=60)
+    email: EmailStr
+    phone: str = Field(pattern=r"^\+?[0-9 \-]{10,20}$")
+    role: UserRole
+    password: str = Field(min_length=8, max_length=72)
+    credential_number: Optional[str] = Field(default=None, min_length=3, max_length=100)
+    specialty: Optional[str] = Field(default=None, max_length=120)
+    experience: Optional[str] = Field(default=None, max_length=40)
+
+
+class StaffCreateResponse(CamelModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: UserRole
+    role_label: str
+    is_verified: bool
+
+
 class StaffFilterOptions(CamelModel):
     roles: List[dict]
     specialties: List[str]

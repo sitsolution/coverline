@@ -7,6 +7,7 @@ import CreateShift from './pages/CreateShift';
 import ShiftDetails from './pages/ShiftDetails';
 import StaffDatabase from './pages/StaffDatabase';
 import StaffProfile from './pages/StaffProfile';
+import AddStaff from './pages/AddStaff';
 import Bookings from './pages/Bookings';
 import BookingDetails from './pages/BookingDetails';
 import DocumentVerification from './pages/DocumentVerification';
@@ -26,6 +27,7 @@ import SAFacilityDetail from './pages/superadmin/SAFacilityDetail';
 import SAReports from './pages/superadmin/SAReports';
 import SAActivityLog from './pages/superadmin/SAActivityLog';
 import SASettings from './pages/superadmin/SASettings';
+import AcceptInvitation from './pages/AcceptInvitation';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { accessToken, isLoading } = useAuth();
@@ -55,6 +57,7 @@ function AppRoutes() {
             : <AdminLogin />
         }
       />
+      <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
       {/* Facility Admin routes */}
       <Route path="/dashboard"         element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -62,6 +65,7 @@ function AppRoutes() {
       <Route path="/shifts/new"        element={<PrivateRoute><CreateShift /></PrivateRoute>} />
       <Route path="/shifts/:id"        element={<PrivateRoute><ShiftDetails /></PrivateRoute>} />
       <Route path="/staff"             element={<PrivateRoute><StaffDatabase /></PrivateRoute>} />
+      <Route path="/staff/new"         element={<PrivateRoute><AddStaff /></PrivateRoute>} />
       <Route path="/staff/:id"         element={<PrivateRoute><StaffProfile /></PrivateRoute>} />
       <Route path="/bookings"          element={<PrivateRoute><Bookings /></PrivateRoute>} />
       <Route path="/bookings/:id"      element={<PrivateRoute><BookingDetails /></PrivateRoute>} />

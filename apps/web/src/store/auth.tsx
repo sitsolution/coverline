@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { subscribeWebPush, unsubscribeWebPush } from '../services/webPushService';
 
 interface AuthState {
   accessToken: string | null;
   role: string | null;
   userId: number | null;
   fullName: string | null;
+  permissions: string[] | null;
   isLoading: boolean;
 }
 
@@ -16,6 +18,7 @@ interface AuthContextValue extends AuthState {
     userId: number;
     fullName?: string;
   }) => void;
+  setPermissions: (permissions: string[]) => void;
   logout: () => void;
 }
 
@@ -27,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: null,
     userId: null,
     fullName: null,
+    permissions: null,
     isLoading: true,
   });
 
@@ -35,14 +39,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const role = localStorage.getItem('user_role');
     const userId = localStorage.getItem('user_id');
     const fullName = localStorage.getItem('user_full_name');
+    const permsRaw = localStorage.getItem('user_permissions');
+    const permissions = permsRaw ? JSON.parse(permsRaw) : null;
     setState({
       accessToken,
       role,
       userId: userId ? parseInt(userId, 10) : null,
       fullName,
+      permissions,
       isLoading: false,
     });
+    // Re-sync the Web Push subscription on every page load for existing sessions
+    if (accessToken) {
+      subscribeWebPush().catch(() => {});
+    }
   }, []);
+
+  const setPermissions = (permissions: string[]) => {
+    localStorage.setItem('user_permissions', JSON.stringify(permissions));
+    setState((prev) => ({ ...prev, permissions }));
+  };
 
   const saveTokens = (payload: {
     accessToken: string;
@@ -56,26 +72,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user_role', payload.role);
     localStorage.setItem('user_id', String(payload.userId));
     if (payload.fullName) localStorage.setItem('user_full_name', payload.fullName);
+    // Clear stale permissions — will be fetched fresh by Layout
+    localStorage.removeItem('user_permissions');
     setState({
       accessToken: payload.accessToken,
       role: payload.role,
       userId: payload.userId,
       fullName: payload.fullName ?? null,
+      permissions: null,
       isLoading: false,
     });
+    // Subscribe to Web Push after login — fire-and-forget
+    subscribeWebPush().catch(() => {});
   };
 
   const logout = () => {
+    // Best-effort unsubscribe before clearing the token
+    unsubscribeWebPush().catch(() => {});
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_full_name');
-    setState({ accessToken: null, role: null, userId: null, fullName: null, isLoading: false });
+    localStorage.removeItem('user_permissions');
+    setState({ accessToken: null, role: null, userId: null, fullName: null, permissions: null, isLoading: false });
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, saveTokens, logout }}>
+    <AuthContext.Provider value={{ ...state, saveTokens, setPermissions, logout }}>
       {children}
     </AuthContext.Provider>
   );

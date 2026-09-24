@@ -15,6 +15,10 @@ import { ProfileStackParamList } from '../../navigation/ProfileStackNavigator';
 import { useAuth } from '../../store/auth';
 import authService from '../../services/authService';
 import userService, { SettingsOut } from '../../services/userService';
+import {
+  registerForPushNotifications,
+  unregisterPushNotifications,
+} from '../../services/pushNotificationService';
 
 type Props = { navigation: NativeStackNavigationProp<ProfileStackParamList, 'Settings'> };
 
@@ -80,6 +84,14 @@ export default function SettingsScreen({ navigation }: Props) {
     setSettings(updated);
     try {
       await userService.updateSettings({ [field]: updated[field] });
+      // When the push toggle changes, actually register or deregister the device
+      if (field === 'pushNotifications') {
+        if (updated.pushNotifications) {
+          await registerForPushNotifications();
+        } else {
+          await unregisterPushNotifications();
+        }
+      }
     } catch {
       // Revert on failure
       setSettings(settings);

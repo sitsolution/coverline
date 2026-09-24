@@ -116,6 +116,7 @@ class TokenResponse(CamelModel):
     role: UserRole
     is_verified: bool
     full_name: Optional[str] = None
+    debug_otp: Optional[str] = None
 
 
 class RefreshRequest(CamelModel):

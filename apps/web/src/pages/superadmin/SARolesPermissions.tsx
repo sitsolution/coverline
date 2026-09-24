@@ -93,13 +93,6 @@ export default function SARolesPermissions() {
             {loading ? 'Loading…' : `${roles.length} roles configured across the platform`}
           </div>
         </div>
-        <button
-          disabled
-          title="Custom roles not available in Phase 1"
-          className="bg-navy text-white text-[12px] font-bold px-4 py-[9px] rounded-[9px] opacity-40 cursor-not-allowed"
-        >
-          + Add Role
-        </button>
       </div>
 
       {/* Global notice */}

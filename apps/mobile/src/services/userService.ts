@@ -143,6 +143,10 @@ const userService = {
     await api.post('/users/me/device-token', { token, platform });
   },
 
+  unregisterDeviceToken: async (token: string, platform: string): Promise<void> => {
+    await api.delete('/users/me/device-token', { data: { token, platform } });
+  },
+
   getDashboard: async (): Promise<DashboardResponse> => {
     const { data } = await api.get('/users/me/dashboard');
     return data;

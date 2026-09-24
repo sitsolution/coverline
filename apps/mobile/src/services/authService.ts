@@ -7,6 +7,7 @@ export interface TokenData {
   userId: number;
   role: string;
   isVerified: boolean;
+  debugOtp?: string | null;
 }
 
 export interface RegisterData extends TokenData {

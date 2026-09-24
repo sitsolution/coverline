@@ -1,9 +1,11 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -52,6 +54,11 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 
 app.include_router(api_router, prefix="/api/v1")
+
+# Serve uploaded files (avatars, documents) at /uploads/<user_id>/<filename>
+_uploads_dir = Path(settings.UPLOAD_DIR).resolve()
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 
 @app.get("/health", tags=["health"])

@@ -136,11 +136,8 @@ def upload_avatar(
     current_user: User = Depends(get_current_user),
 ):
     """'Change Photo' on Edit Profile."""
-    if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Avatar must be an image"
-        )
-    relative_path, _ = save_upload(file, current_user.id)
+    from app.services.storage import _AVATAR_TYPES
+    relative_path, _ = save_upload(file, current_user.id, allowed_types=_AVATAR_TYPES)
     current_user.avatar_url = f"/uploads/{relative_path}"
     db.commit()
     db.refresh(current_user)

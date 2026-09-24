@@ -95,6 +95,7 @@ export default function ActivityLog() {
   }, [category]);
 
   const handleCategoryChange = (key: string) => {
+    if (key === category) return;
     setItems([]);
     setTotal(0);
     setCategory(key);

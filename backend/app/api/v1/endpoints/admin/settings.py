@@ -1,9 +1,13 @@
+import logging
 import secrets
+import traceback
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.admin import AdminContext, get_admin, require_admin
 from app.core.config import settings as app_settings
@@ -108,6 +112,28 @@ def update_facility(
     return _facility_out(facility)
 
 
+@router.get("/me", response_model=dict)
+def get_my_admin_context(admin: AdminContext = Depends(get_admin)):
+    """Returns the current admin's permissions and facility role.
+    Used by the frontend to filter sidebar navigation."""
+    facility_role = "super_admin" if admin.is_platform_admin else None
+    if not admin.is_platform_admin and admin.primary_facility_id:
+        member = (
+            admin.db.query(FacilityMember)
+            .filter(
+                FacilityMember.facility_id == admin.primary_facility_id,
+                FacilityMember.user_id == admin.user.id,
+            )
+            .first()
+        )
+        facility_role = member.facility_role.value if member else None
+    return {
+        "permissions": admin.permissions,
+        "facilityRole": facility_role,
+        "isPlatformAdmin": admin.is_platform_admin,
+    }
+
+
 @router.get("/permissions", response_model=List[PermissionOption])
 def list_permissions(admin: AdminContext = Depends(get_admin)):
     """Populates the checkbox list on Add Admin User."""
@@ -179,6 +205,19 @@ def invite_admin_user(
     token; the invitee sets their own password via `/auth/accept-invitation`.
     No password is ever chosen on their behalf.
     """
+    try:
+        return _invite_admin_user_impl(payload, admin)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("invite_admin_user UNHANDLED: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {type(exc).__name__}: {exc}",
+        )
+
+
+def _invite_admin_user_impl(payload: AdminUserInvite, admin: AdminContext) -> AdminUserInviteResponse:
     db = admin.db
     facility = _resolve_facility(admin, payload.facility_id)
     _assert_can_manage_members(admin, facility.id)
@@ -205,6 +244,14 @@ def invite_admin_user(
                 detail="That person is already an admin on this facility",
             )
     else:
+        # Guard against phone uniqueness constraint violation
+        if payload.phone:
+            phone_taken = db.query(User).filter(User.phone == payload.phone).first()
+            if phone_taken:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="That phone number is already registered to another account",
+                )
         user = User(
             email=payload.email,
             phone=payload.phone,

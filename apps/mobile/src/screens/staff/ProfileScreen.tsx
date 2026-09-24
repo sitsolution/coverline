@@ -7,7 +7,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { getFileUrl } from '../../services/api';
 import { useRefresh } from '../../hooks/useRefresh';
 import Screen from '../../components/ui/Screen';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -92,7 +94,11 @@ export default function ProfileScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0F3D5C" colors={['#0F3D5C']} />}>
         <View style={styles.profileCenter}>
           <View style={styles.avatarLg}>
-            <Text style={styles.avatarLgText}>{user ? getInitials(user.fullName) : '?'}</Text>
+            {getFileUrl(user?.avatarUrl) ? (
+              <Image source={{ uri: getFileUrl(user!.avatarUrl)! }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarLgText}>{user ? getInitials(user.fullName) : '?'}</Text>
+            )}
           </View>
           <Text style={styles.profileName}>{user?.fullName ?? ''}</Text>
           <Text style={styles.profileTitle}>
@@ -191,6 +197,7 @@ const styles = StyleSheet.create({
   profileCenter: { alignItems: 'center', paddingTop: 2, paddingBottom: 18 },
   avatarLg: { width: 72, height: 72, borderRadius: 16, backgroundColor: '#EAF2F8', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   avatarLgText: { fontSize: 22, fontWeight: '800', color: '#0F3D5C' },
+  avatarImage: { width: 72, height: 72, borderRadius: 16 },
   profileName: { fontSize: 15, fontWeight: '800', color: '#14202E' },
   profileTitle: { fontSize: 11.5, color: '#5C6B7A', marginTop: 2 },
   profileLoc: { fontSize: 11.5, color: '#5C6B7A' },
