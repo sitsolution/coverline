@@ -31,6 +31,7 @@ export interface StaffStats {
   reviewsCount: number;
   cancellationCount: number;
   totalPaid: number;
+  avgResponseMinutes: number | null;
 }
 
 export interface StaffDetail {

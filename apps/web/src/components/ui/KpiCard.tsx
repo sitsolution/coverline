@@ -1,11 +1,11 @@
 type Props = {
   label: string;
   value: string;
-  delta: string;
+  delta?: string;
   deltaColor?: string;
 };
 
-export default function KpiCard({ label, value, delta, deltaColor = '#1F8A5F' }: Props) {
+export default function KpiCard({ label, value, delta = '', deltaColor = '#1F8A5F' }: Props) {
   return (
     <div className="bg-white border border-line rounded-[11px] p-[14px]">
       <div className="text-[10.8px] font-semibold text-slate">{label}</div>

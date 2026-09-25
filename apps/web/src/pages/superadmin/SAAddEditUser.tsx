@@ -43,6 +43,7 @@ function docStatusVariant(status: string): 'success' | 'warning' | 'urgent' | 'n
     case 'verified': return 'success';
     case 'pending':  return 'warning';
     case 'rejected': return 'urgent';
+    case 'expired':  return 'urgent';
     default:         return 'neutral';
   }
 }
@@ -291,7 +292,7 @@ export default function SAAddEditUser() {
                     <label className={labelCls}>Status</label>
                     <select value={isActive ? 'active' : 'inactive'} onChange={(e) => setIsActive(e.target.value === 'active')} className={inputCls + ' cursor-pointer'}>
                       <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
+                      <option value="inactive">Inactive / Suspended</option>
                     </select>
                   </div>
                 </div>

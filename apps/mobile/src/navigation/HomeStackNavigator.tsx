@@ -4,12 +4,14 @@ import DashboardScreen from '../screens/staff/DashboardScreen';
 import NotificationsScreen from '../screens/staff/NotificationsScreen';
 import MessagesListScreen from '../screens/staff/MessagesListScreen';
 import ChatScreen from '../screens/staff/ChatScreen';
+import ShiftDetailsScreen from '../screens/staff/ShiftDetailsScreen';
 
 export type HomeStackParamList = {
   Dashboard: undefined;
   Notifications: undefined;
   MessagesList: undefined;
   Chat: { roomKey: string; adminName: string };
+  ShiftDetails: { shiftId: number };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -21,6 +23,7 @@ export default function HomeStackNavigator() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="MessagesList" component={MessagesListScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="ShiftDetails" component={ShiftDetailsScreen} />
     </Stack.Navigator>
   );
 }

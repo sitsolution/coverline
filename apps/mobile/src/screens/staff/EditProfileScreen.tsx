@@ -180,7 +180,7 @@ export default function EditProfileScreen({ navigation }: Props) {
 
     const asset = result.assets[0];
     const fileName = asset.uri.split('/').pop() ?? 'avatar.jpg';
-    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const mimeType = asset.mimeType || 'image/jpeg';
 
     setUploadingPhoto(true);
     try {

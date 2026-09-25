@@ -73,9 +73,9 @@ function ShiftTags({ shift }: { shift: ShiftItem }) {
   );
 }
 
-function UrgentShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: number) => void }) {
+function UrgentShiftCard({ item, onPress, onApply }: { item: ShiftItem; onPress: () => void; onApply: (id: number) => void }) {
   return (
-    <View style={styles.urgentCard}>
+    <TouchableOpacity style={styles.urgentCard} onPress={onPress} activeOpacity={0.95}>
       <View style={styles.cardTopRow}>
         <HospitalAvatar initials={item.facility?.initials || getInitials(item.facility?.name ?? '')} />
         <View style={styles.cardTopInfo}>
@@ -102,19 +102,23 @@ function UrgentShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: num
           <View style={styles.appliedBadge}>
             <Text style={styles.appliedBadgeText}>{item.applicationStatus === 'confirmed' ? 'Confirmed' : 'Applied'}</Text>
           </View>
+        ) : item.hasStarted ? (
+          <View style={styles.startedBadge}>
+            <Text style={styles.startedBadgeText}>Already started</Text>
+          </View>
         ) : (
-          <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85} onPress={() => onApply(item.id)}>
+          <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85} onPress={(e) => { e.stopPropagation?.(); onApply(item.id); }}>
             <Text style={styles.applyBtnText}>Apply</Text>
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-function RecommendedShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id: number) => void }) {
+function RecommendedShiftCard({ item, onPress, onApply }: { item: ShiftItem; onPress: () => void; onApply: (id: number) => void }) {
   return (
-    <View style={styles.recCard}>
+    <TouchableOpacity style={styles.recCard} onPress={onPress} activeOpacity={0.95}>
       <View style={styles.cardTopRow}>
         <HospitalAvatar initials={item.facility?.initials || getInitials(item.facility?.name ?? '')} />
         <View style={styles.cardTopInfo}>
@@ -135,12 +139,16 @@ function RecommendedShiftCard({ item, onApply }: { item: ShiftItem; onApply: (id
         <View style={[styles.applyBtn, styles.applyBtnFull, styles.appliedBadge]}>
           <Text style={styles.appliedBadgeText}>{item.applicationStatus === 'confirmed' ? 'Confirmed' : 'Applied'}</Text>
         </View>
+      ) : item.hasStarted ? (
+        <View style={[styles.applyBtnFull, styles.startedBadge]}>
+          <Text style={styles.startedBadgeText}>Already started</Text>
+        </View>
       ) : (
-        <TouchableOpacity style={[styles.applyBtn, styles.applyBtnFull]} activeOpacity={0.85} onPress={() => onApply(item.id)}>
+        <TouchableOpacity style={[styles.applyBtn, styles.applyBtnFull]} activeOpacity={0.85} onPress={(e) => { e.stopPropagation?.(); onApply(item.id); }}>
           <Text style={styles.applyBtnText}>Apply</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -289,7 +297,7 @@ export default function DashboardScreen({ navigation }: Props) {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.urgentList}
-            renderItem={({ item }) => <UrgentShiftCard item={item} onApply={handleApply} />}
+            renderItem={({ item }) => <UrgentShiftCard item={item} onPress={() => navigation.navigate('ShiftDetails', { shiftId: item.id })} onApply={handleApply} />}
             nestedScrollEnabled
           />
         ) : (
@@ -308,7 +316,7 @@ export default function DashboardScreen({ navigation }: Props) {
 
         {(dashboard?.recommendedShifts?.length ?? 0) > 0 ? (
           dashboard?.recommendedShifts.map((item) => (
-            <RecommendedShiftCard key={item.id} item={item} onApply={handleApply} />
+            <RecommendedShiftCard key={item.id} item={item} onPress={() => navigation.navigate('ShiftDetails', { shiftId: item.id })} onApply={handleApply} />
           ))
         ) : (
           <EmptyState
@@ -406,6 +414,8 @@ const styles = StyleSheet.create({
   applyBtnText: { fontSize: 11.5, fontWeight: '700', color: '#fff' },
   appliedBadge: { backgroundColor: '#EAF2F8', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   appliedBadgeText: { fontSize: 11.5, fontWeight: '700', color: '#0F3D5C' },
+  startedBadge: { backgroundColor: '#F0F5F9', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center' },
+  startedBadgeText: { fontSize: 11.5, fontWeight: '700', color: '#5C6B7A' },
 
   hospitalName: { fontSize: 12.8, fontWeight: '700', color: '#14202E', marginBottom: 1 },
   hospitalLoc: { fontSize: 11, color: '#5C6B7A', marginTop: 1 },

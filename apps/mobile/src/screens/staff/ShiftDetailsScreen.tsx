@@ -135,6 +135,7 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
   const isApplied = shift.applicationStatus != null;
   const isConfirmed = shift.applicationStatus === 'confirmed';
   const isCancelled = shift.status === 'cancelled';
+  const hasStarted = shift.hasStarted;
   const roleLabel = ROLE_LABELS[shift.role] ?? shift.role;
 
   return (
@@ -253,6 +254,10 @@ export default function ShiftDetailsScreen({ navigation, route }: Props) {
         ) : isApplied ? (
           <View style={[styles.applyBtn, { backgroundColor: '#8697A6' }]}>
             <Text style={styles.applyBtnText}>Applied ✓</Text>
+          </View>
+        ) : hasStarted ? (
+          <View style={[styles.applyBtn, { backgroundColor: '#8697A6' }]}>
+            <Text style={styles.applyBtnText}>Already started</Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.applyBtn} onPress={handleApply} activeOpacity={0.85} disabled={applying}>

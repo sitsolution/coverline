@@ -32,6 +32,7 @@ from app.schemas.admin.booking import (
 )
 from app.schemas.admin.shift import TimelineEntry
 from app.services.activity_log import log_activity
+from app.services.labels import role_label
 from app.services.notifications import notify
 
 from .common import as_aware, booking_display_status, booking_reference, now_ist, shift_reference
@@ -260,6 +261,7 @@ def _get_booking(admin: AdminContext, booking_id: int) -> Application:
 def _timeline(application: Application, payment: Payment | None = None) -> List[TimelineEntry]:
     """The Timeline panel on Booking Details."""
     shift = application.shift
+    staff_role = role_label(application.staff.role) if application.staff else "Staff"
     completed = application.status == ApplicationStatus.completed
     cancelled = application.status in (ApplicationStatus.cancelled, ApplicationStatus.rejected)
 
@@ -268,7 +270,7 @@ def _timeline(application: Application, payment: Payment | None = None) -> List[
 
     entries = [
         TimelineEntry(label="Shift created", at=shift.created_at, done=True),
-        TimelineEntry(label="Doctor applied", at=application.applied_at, done=True),
+        TimelineEntry(label=f"{staff_role} applied", at=application.applied_at, done=True),
         TimelineEntry(
             label="Booking confirmed",
             at=application.responded_at,

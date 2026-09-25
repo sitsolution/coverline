@@ -6,6 +6,7 @@ import Panel from '../components/ui/Panel';
 import Pagination from '../components/ui/Pagination';
 import adminShiftsService, { AdminShiftRow } from '../services/adminShiftsService';
 import SortTh from '../components/ui/SortTh';
+import DateRangePicker from '../components/ui/DateRangePicker';
 
 const PAGE_SIZE = 25;
 
@@ -45,6 +46,8 @@ export default function ShiftsManagement() {
   const [status, setStatus] = useState('');
   const [location, setLocation] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -67,6 +70,8 @@ export default function ShiftsManagement() {
         status: status || undefined,
         location: location || undefined,
         specialty: specialty || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
         limit: PAGE_SIZE,
         offset: (p - 1) * PAGE_SIZE,
         sortBy,
@@ -79,10 +84,10 @@ export default function ShiftsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, location, specialty, page, sortBy, sortOrder]);
+  }, [search, status, location, specialty, dateFrom, dateTo, page, sortBy, sortOrder]);
 
   // reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [search, status, location, specialty]);
+  useEffect(() => { setPage(1); }, [search, status, location, specialty, dateFrom, dateTo]);
 
   // debounce search + reload
   useEffect(() => {
@@ -90,7 +95,7 @@ export default function ShiftsManagement() {
     return () => clearTimeout(t);
   }, [load, page]);
 
-  const hasFilters = search || status || location || specialty;
+  const hasFilters = search || status || location || specialty || dateFrom || dateTo;
 
   return (
     <Layout>
@@ -141,9 +146,13 @@ export default function ShiftsManagement() {
           onChange={(e) => setLocation(e.target.value)}
           className="px-3 py-[7px] border-[1.4px] border-line rounded-[9px] text-[11.5px] text-ink outline-none focus:border-navy-2 bg-white min-w-[140px]"
         />
+        <DateRangePicker
+          value={{ dateFrom, dateTo }}
+          onChange={({ dateFrom: f, dateTo: t }) => { setDateFrom(f); setDateTo(t); }}
+        />
         {hasFilters && (
           <button
-            onClick={() => { setSearch(''); setStatus(''); setLocation(''); setSpecialty(''); }}
+            onClick={() => { setSearch(''); setStatus(''); setLocation(''); setSpecialty(''); setDateFrom(''); setDateTo(''); }}
             className="text-[11px] font-semibold text-urgent hover:underline"
           >
             Clear filters

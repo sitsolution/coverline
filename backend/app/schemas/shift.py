@@ -42,6 +42,7 @@ class ShiftListItem(CamelModel):
     # Relative to the requesting user.
     application_status: Optional[str] = None    # None | "pending" | "confirmed" | …
     is_favorite: bool = False
+    has_started: bool = False
 
 
 class ShiftDetail(ShiftListItem):

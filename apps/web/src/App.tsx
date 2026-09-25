@@ -16,7 +16,6 @@ import CalendarView from './pages/CalendarView';
 import NotificationsCenter from './pages/NotificationsCenter';
 import AdminSettings from './pages/AdminSettings';
 import AddAdminUser from './pages/AddAdminUser';
-import InvoicesBilling from './pages/InvoicesBilling';
 import ActivityLog from './pages/ActivityLog';
 import SADashboard from './pages/superadmin/SADashboard';
 import SAUserManagement from './pages/superadmin/SAUserManagement';
@@ -75,7 +74,6 @@ function AppRoutes() {
       <Route path="/notifications"     element={<PrivateRoute><NotificationsCenter /></PrivateRoute>} />
       <Route path="/settings"          element={<PrivateRoute><AdminSettings /></PrivateRoute>} />
       <Route path="/settings/add-user" element={<PrivateRoute><AddAdminUser /></PrivateRoute>} />
-      <Route path="/billing"           element={<PrivateRoute><InvoicesBilling /></PrivateRoute>} />
       <Route path="/activity-log"      element={<PrivateRoute><ActivityLog /></PrivateRoute>} />
 
       {/* Super Admin routes */}

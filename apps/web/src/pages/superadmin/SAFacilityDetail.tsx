@@ -61,6 +61,7 @@ export default function SAFacilityDetail() {
   const [state, setState]             = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [description, setDescription] = useState('');
+  const [isActive, setIsActive]       = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -75,6 +76,7 @@ export default function SAFacilityDetail() {
         setState(f.state ?? '');
         setContactEmail(f.contactEmail ?? '');
         setDescription(f.description ?? '');
+        setIsActive(f.isActive);
       })
       .catch(() => setError('Failed to load facility.'))
       .finally(() => setLoading(false));
@@ -95,6 +97,7 @@ export default function SAFacilityDetail() {
         state: state || null,
         contactEmail: contactEmail || null,
         description: description || null,
+        isActive,
       });
       // Update only the editable fields — do NOT spread the response (it lacks members/state/description)
       setFacility((prev) => prev ? {
@@ -106,6 +109,7 @@ export default function SAFacilityDetail() {
         state: state || null,
         contactEmail: contactEmail || null,
         description: description || null,
+        isActive,
       } : prev);
       setSuccess('Facility updated successfully.');
     } catch {
@@ -257,6 +261,17 @@ export default function SAFacilityDetail() {
                   placeholder="Brief description of the facility…"
                   className={inputCls + ' resize-none'}
                 />
+              </div>
+              <div>
+                <label className={labelCls}>Status</label>
+                <select
+                  value={isActive ? 'active' : 'inactive'}
+                  onChange={(e) => setIsActive(e.target.value === 'active')}
+                  className={inputCls + ' cursor-pointer'}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Suspended / Inactive</option>
+                </select>
               </div>
               <button
                 type="submit"

@@ -185,6 +185,7 @@ export default function SAFacilities() {
   const [showModal, setShowModal]   = useState(false);
   const [sortBy, setSortBy]         = useState('created_at');
   const [sortOrder, setSortOrder]   = useState<'asc' | 'desc'>('desc');
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const handleSort = (col: string) => {
     if (col === sortBy) {
@@ -220,6 +221,18 @@ export default function SAFacilities() {
   const handleCreated = () => {
     setShowModal(false);
     fetchFacilities();
+  };
+
+  const handleToggleStatus = async (f: SAFacility) => {
+    setTogglingId(f.id);
+    try {
+      await superAdminService.updateFacility(f.id, { isActive: !f.isActive });
+      setFacilities((prev) => prev.map((x) => x.id === f.id ? { ...x, isActive: !f.isActive } : x));
+    } catch {
+      setError('Failed to update facility status.');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   return (
@@ -326,14 +339,15 @@ export default function SAFacilities() {
                           onClick={() => navigate(`/superadmin/facilities/${f.id}`)}
                           className="text-navy-2 font-semibold hover:underline bg-transparent outline-none cursor-pointer"
                         >
-                          View
+                          View / Edit
                         </button>
                         <span className="text-slate mx-[6px]">·</span>
                         <button
-                          onClick={() => navigate(`/superadmin/facilities/${f.id}`)}
-                          className="text-navy-2 font-semibold hover:underline bg-transparent outline-none cursor-pointer"
+                          onClick={() => handleToggleStatus(f)}
+                          disabled={togglingId === f.id}
+                          className={`font-semibold hover:underline bg-transparent outline-none cursor-pointer disabled:opacity-50 ${f.isActive ? 'text-urgent' : 'text-success'}`}
                         >
-                          Edit
+                          {togglingId === f.id ? '…' : f.isActive ? 'Suspend' : 'Activate'}
                         </button>
                       </span>
                     </td>

@@ -70,6 +70,7 @@ export interface ShiftItem {
   isFavorite: boolean;
   slots: number;
   slotsRemaining: number;
+  hasStarted: boolean;
 }
 
 export interface DashboardResponse {

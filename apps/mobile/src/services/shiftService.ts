@@ -32,6 +32,9 @@ export interface ListShiftsParams {
   specialty?: string;
   shiftType?: string;
   urgentOnly?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  minPay?: number;
   limit?: number;
   offset?: number;
 }

@@ -276,8 +276,9 @@ def get_dashboard(
     current_user: User = Depends(get_current_staff),
 ):
     """The whole Home screen in one call: stats, urgent shifts, recommendations."""
-    from app.api.v1.endpoints.shifts import recommended_shifts
+    from app.api.v1.endpoints.shifts import recommended_shifts, _now_ist
 
+    now_ist = _now_ist()
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -287,7 +288,7 @@ def get_dashboard(
             Shift.role == current_user.role,
             Shift.status == ShiftStatus.open,
             Shift.is_visible.is_(True),
-            Shift.start_time > now,
+            Shift.end_time > now_ist,
             Shift.slots_filled < Shift.slots,
         )
         .scalar()
@@ -332,7 +333,7 @@ def get_dashboard(
             Shift.status == ShiftStatus.open,
             Shift.is_visible.is_(True),
             Shift.is_urgent.is_(True),
-            Shift.start_time > now,
+            Shift.end_time > now_ist,
             Shift.slots_filled < Shift.slots,
         )
         .order_by(Shift.start_time.asc())

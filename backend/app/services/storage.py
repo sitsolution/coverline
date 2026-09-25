@@ -22,6 +22,9 @@ EXTENSIONS = {
     "image/heif": ".heif",
 }
 
+# Some clients (Android) send "image/jpg" — normalise before any checks.
+_MIME_ALIASES = {"image/jpg": "image/jpeg"}
+
 
 def upload_root() -> Path:
     root = Path(settings.UPLOAD_DIR).resolve()
@@ -38,8 +41,11 @@ def save_upload(file: UploadFile, user_id: int, allowed_types: set | None = None
     Pass ``allowed_types`` to override the default config list (e.g. for avatar
     uploads which should accept WebP / HEIC in addition to the document types).
     """
+    # Normalise aliases (e.g. Android sometimes sends "image/jpg")
+    content_type = _MIME_ALIASES.get(file.content_type or "", file.content_type or "")
+
     types = allowed_types if allowed_types is not None else set(settings.allowed_upload_types)
-    if file.content_type not in types:
+    if content_type not in types:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=f"Unsupported file type. Allowed: {', '.join(sorted(types))}",
@@ -64,7 +70,7 @@ def save_upload(file: UploadFile, user_id: int, allowed_types: set | None = None
     user_dir = upload_root() / str(user_id)
     user_dir.mkdir(parents=True, exist_ok=True)
 
-    name = f"{secrets.token_hex(16)}{EXTENSIONS[file.content_type]}"
+    name = f"{secrets.token_hex(16)}{EXTENSIONS[content_type]}"
     (user_dir / name).write_bytes(b"".join(chunks))
     return f"{user_id}/{name}", size
 

@@ -77,6 +77,7 @@ class UpdateFacilityBody(CamelModel):
     state: Optional[str] = None
     contact_email: Optional[str] = None
     description: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -300,6 +301,8 @@ def update_facility(
         facility.contact_email = body.contact_email
     if body.description is not None:
         facility.description = body.description
+    if body.is_active is not None:
+        facility.is_active = body.is_active
 
     db.commit()
     db.refresh(facility)

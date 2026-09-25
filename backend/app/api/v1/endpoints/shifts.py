@@ -133,13 +133,13 @@ def list_shifts(
         urgent_only=urgent_only,
     )
 
-    # Only open, visible, future shifts with a free slot are browsable. The
-    # status check also keeps drafts out; is_visible honours the "Make Visible
-    # to All Doctors" toggle on the admin Create Shift form.
+    # Show open shifts until they end (not just until they start). Shifts that
+    # have already begun are still visible so staff can see them — the Apply
+    # button is disabled client-side (and blocked server-side) once started.
     query = query.filter(
         Shift.status == ShiftStatus.open,
         Shift.is_visible.is_(True),
-        Shift.start_time > _now_ist(),
+        Shift.end_time > _now_ist(),
         Shift.slots_filled < Shift.slots,
     )
 
@@ -177,7 +177,7 @@ def recommended_shifts(
         Shift.role == current_user.role,
         Shift.status == ShiftStatus.open,
         Shift.is_visible.is_(True),
-        Shift.start_time > _now_ist(),
+        Shift.end_time > _now_ist(),
         Shift.slots_filled < Shift.slots,
     )
 

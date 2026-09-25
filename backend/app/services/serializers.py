@@ -66,6 +66,9 @@ def shift_item(
     application_statuses: Optional[Dict[int, str]] = None,
     favorite_ids: Optional[Set[int]] = None,
 ) -> ShiftListItem:
+    from datetime import timedelta, timezone as tz
+    _IST = tz(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(_IST).replace(tzinfo=None)
     return ShiftListItem(
         id=shift.id,
         facility=facility_brief(shift),
@@ -85,6 +88,7 @@ def shift_item(
         slots_remaining=max(0, shift.slots - shift.slots_filled),
         application_status=(application_statuses or {}).get(shift.id),
         is_favorite=shift.id in (favorite_ids or set()),
+        has_started=shift.start_time <= now_ist,
     )
 
 

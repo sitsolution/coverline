@@ -100,7 +100,6 @@ export default function EarningsScreen({ navigation }: Props) {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [transactions, setTransactions] = useState<TransactionOut[]>([]);
   const [loading, setLoading] = useState(true);
-  const [payingOut, setPayingOut] = useState(false);
   const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
@@ -135,19 +134,6 @@ export default function EarningsScreen({ navigation }: Props) {
       setToast({ visible: true, message: 'Failed to acknowledge payment.', type: 'error' });
     } finally {
       setAcknowledgingId(null);
-    }
-  };
-
-  const handleRequestPayout = async () => {
-    setPayingOut(true);
-    try {
-      await earningsService.requestPayout();
-      setToast({ visible: true, message: 'Payout request submitted successfully.', type: 'success' });
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to request payout.';
-      setToast({ visible: true, message: msg, type: 'error' });
-    } finally {
-      setPayingOut(false);
     }
   };
 
@@ -241,10 +227,6 @@ export default function EarningsScreen({ navigation }: Props) {
           ))
         )}
 
-        {/* Withdraw button */}
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.85} onPress={handleRequestPayout} disabled={payingOut}>
-          <Text style={styles.primaryBtnText}>{payingOut ? 'Requesting…' : 'Withdraw / Request Payout'}</Text>
-        </TouchableOpacity>
       </ScrollView>
       <Toast
         visible={toast.visible}
@@ -365,13 +347,4 @@ const styles = StyleSheet.create({
   receivedBtnText: { fontSize: 11, fontWeight: '700', color: '#1F8A5F' },
   acknowledgedText: { fontSize: 11, color: '#1F8A5F', fontWeight: '600', marginTop: 4 },
 
-  // Primary button
-  primaryBtn: {
-    backgroundColor: '#0F3D5C',
-    borderRadius: 10,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  primaryBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

@@ -70,6 +70,7 @@ class StaffStats(CamelModel):
     reviews_count: int
     cancellation_count: int
     total_paid: float
+    avg_response_minutes: Optional[int] = None  # median mins from shift publish → staff applies
 
 
 class StaffDetail(CamelModel):

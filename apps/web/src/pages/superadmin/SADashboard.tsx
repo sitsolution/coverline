@@ -164,7 +164,7 @@ export default function SADashboard() {
                   onClick={() => navigate('/superadmin/roles')}
                   className="w-full bg-sky text-navy text-[13px] font-bold px-4 py-[11px] rounded-[10px] text-center hover:bg-sky-2 transition-colors"
                 >
-                  + Add Role
+                  Manage Permissions
                 </button>
               </div>
             </Panel>

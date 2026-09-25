@@ -35,6 +35,14 @@ function shiftDateLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+function formatResponseTime(minutes: number | null): string {
+  if (minutes === null) return '—';
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 export default function StaffProfile() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState('Overview');
@@ -160,9 +168,10 @@ export default function StaffProfile() {
 
       {activeTab === 'Overview' && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-[18px]">
+          <div className="grid grid-cols-4 gap-3 mb-[18px]">
             <KpiCard label="Total Shifts" value={String(profile.stats.shiftsCompleted)} delta="All-time" />
             <KpiCard label="Completion Rate" value={`${profile.stats.completionRate}%`} delta="Above network avg" deltaColor="#1F8A5F" />
+            <KpiCard label="Response Time" value={formatResponseTime(profile.stats.avgResponseMinutes)} delta="Median" />
             <KpiCard label="Rating" value={`${profile.stats.rating.toFixed(1)}★`} delta={`${profile.stats.reviewsCount} reviews`} />
           </div>
 
@@ -230,7 +239,7 @@ export default function StaffProfile() {
                       <td className="font-semibold">{d.originalFilename}</td>
                       <td>{d.docTypeLabel}</td>
                       <td className="text-slate">{d.expiryDate ? new Date(d.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
-                      <td><Badge label={d.status.charAt(0).toUpperCase() + d.status.slice(1)} variant={d.status === 'verified' ? 'success' : d.status === 'rejected' ? 'urgent' : 'warning'} /></td>
+                      <td><Badge label={d.status.charAt(0).toUpperCase() + d.status.slice(1)} variant={d.status === 'verified' ? 'success' : d.status === 'rejected' || d.status === 'expired' ? 'urgent' : 'warning'} /></td>
                     </tr>
                   ))}
                 </tbody>

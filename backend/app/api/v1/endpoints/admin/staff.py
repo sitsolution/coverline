@@ -302,6 +302,29 @@ def get_staff(
 
     available = _availability_map(db, [user.id]).get(user.id, False)
 
+    # Response time: median minutes from shift.published_at → application.applied_at
+    response_pairs = (
+        db.query(Application.applied_at, Shift.published_at)
+        .join(Shift, Application.shift_id == Shift.id)
+        .filter(
+            Application.staff_id == user.id,
+            Shift.published_at.isnot(None),
+            Application.applied_at.isnot(None),
+        )
+        .all()
+    )
+    avg_response_minutes: Optional[int] = None
+    if response_pairs:
+        deltas = sorted(
+            int((row.applied_at - row.published_at).total_seconds() / 60)
+            for row in response_pairs
+            if row.applied_at >= row.published_at
+        )
+        if deltas:
+            mid = len(deltas) // 2
+            median = deltas[mid] if len(deltas) % 2 else (deltas[mid - 1] + deltas[mid]) // 2
+            avg_response_minutes = max(0, median)
+
     return StaffDetail(
         id=user.id,
         name=user.full_name,
@@ -333,6 +356,7 @@ def get_staff(
             reviews_count=profile.reviews_count if profile else 0,
             cancellation_count=cancellations,
             total_paid=float(total_paid),
+            avg_response_minutes=avg_response_minutes,
         ),
         can_view_documents=can_view,
         documents=[document_out(d) for d in documents],

@@ -80,6 +80,8 @@ export interface ShiftFilters {
   location?: string;
   specialty?: string;
   role?: string;
+  dateFrom?: string;
+  dateTo?: string;
   limit?: number;
   offset?: number;
   sortBy?: string;
