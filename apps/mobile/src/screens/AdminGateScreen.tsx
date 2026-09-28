@@ -30,7 +30,7 @@ export default function AdminGateScreen() {
         </Text>
         <Text style={styles.body}>
           As a facility admin, please use the{' '}
-          <Text style={styles.highlight}>Coverline Web Admin Panel</Text>{' '}
+          <Text style={styles.highlight}>Covershift Web Admin Panel</Text>{' '}
           to manage shifts, staff, and your facility.
         </Text>
 

@@ -63,7 +63,7 @@ export default function AcceptInvitation() {
       <div className="w-full max-w-[420px]">
         {/* Logo / brand */}
         <div className="text-center mb-8">
-          <div className="font-display font-extrabold text-[22px] text-navy tracking-tight">Coverline</div>
+          <div className="font-display font-extrabold text-[22px] text-navy tracking-tight">Covershift</div>
           <div className="text-[12px] text-slate mt-1">Admin Portal</div>
         </div>
 

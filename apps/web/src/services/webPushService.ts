@@ -1,5 +1,5 @@
 /**
- * Web Push subscription management for the Coverline admin panel.
+ * Web Push subscription management for the Covershift admin panel.
  *
  * Flow:
  *  1. After login, call subscribeWebPush().

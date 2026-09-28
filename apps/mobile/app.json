@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Coverline",
-    "slug": "coverline",
+    "name": "Covershift",
+    "slug": "covershift",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -13,10 +13,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.coverline.mobile"
+      "bundleIdentifier": "com.covershift.mobile"
     },
     "android": {
-      "package": "com.coverline.mobile",
+      "package": "com.covershift.mobile",
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
@@ -31,7 +31,7 @@
       "backgroundColor": "#0F3D5C",
       "translucent": false
     },
-    "scheme": "coverline",
+    "scheme": "covershift",
     "extra": {
       "eas": {
         "projectId": "EXPO_PROJECT_ID_PLACEHOLDER"
@@ -51,8 +51,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Coverline needs access to your photos to upload documents.",
-          "cameraPermission": "Coverline needs camera access to photograph your documents."
+          "photosPermission": "Covershift needs access to your photos to upload documents.",
+          "cameraPermission": "Covershift needs camera access to photograph your documents."
         }
       ],
       [

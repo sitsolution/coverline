@@ -691,5 +691,5 @@ def invite_staff(
 
     return MessageResponse(
         message=f"Invitation queued for {payload.email}. "
-                "They will be prompted to complete registration in the Coverline app."
+                "They will be prompted to complete registration in the Covershift app."
     )

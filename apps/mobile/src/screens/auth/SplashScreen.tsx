@@ -40,7 +40,7 @@ export default function SplashScreen({ navigation }: Props) {
             </Svg>
           </View>
 
-          <Text style={styles.title}>Coverline</Text>
+          <Text style={styles.title}>Covershift</Text>
           <Text style={styles.tagline}>
             Cover every shift — doctors, nurses, OT technicians & housekeeping staff, all in one place.
           </Text>

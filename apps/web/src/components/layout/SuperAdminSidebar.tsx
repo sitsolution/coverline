@@ -37,7 +37,7 @@ export default function SuperAdminSidebar() {
           />
         </svg>
         <span className="font-display font-extrabold text-[13.5px] text-white">
-          Coverline · Super Admin
+          Covershift · Super Admin
         </span>
       </div>
 

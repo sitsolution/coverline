@@ -32,7 +32,7 @@ export default function Navbar() {
             </svg>
           </div>
           <span className={`font-display font-extrabold text-[17px] tracking-tight transition-colors ${scrolled ? 'text-navy-3' : 'text-white'}`}>
-            Coverline
+            Covershift
           </span>
         </a>
 

@@ -76,7 +76,7 @@ export default function SADashboard() {
         Platform Dashboard
       </div>
       <div className="text-[11.5px] text-slate mb-4">
-        Overview across all facilities on Coverline
+        Overview across all facilities on Covershift
       </div>
 
       {error && (

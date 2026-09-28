@@ -1,5 +1,5 @@
 export const Colors = {
-  // Design tokens from Coverline HTML
+  // Design tokens from Covershift HTML
   ink: '#14202E',
   navy: '#0F3D5C',
   navy2: '#175E86',

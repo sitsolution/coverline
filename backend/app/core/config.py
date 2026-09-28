@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # ── Core ──────────────────────────────────────────────────────────────────
     DEBUG: bool = True
-    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/coverline"
+    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/covershift"
 
     # No default: a missing SECRET_KEY must fail loudly rather than silently
     # signing tokens with a well-known value.
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Or use the online tool at https://vapidkeys.com
     VAPID_PRIVATE_KEY: str = ""
     VAPID_PUBLIC_KEY: str = ""
-    VAPID_CLAIMS_EMAIL: str = "admin@coverline.in"
+    VAPID_CLAIMS_EMAIL: str = "admin@covershift.in"
 
     # ── Business rules ────────────────────────────────────────────────────────
     # How close to shift start a confirmed application may still be cancelled.

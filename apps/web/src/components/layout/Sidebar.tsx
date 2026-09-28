@@ -37,7 +37,7 @@ export default function Sidebar() {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M2 12h4l2-7 4 14 2-9 2 5h6" stroke="#5FB4E0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span className="font-display font-extrabold text-[13.5px] text-white">Coverline · Admin</span>
+        <span className="font-display font-extrabold text-[13.5px] text-white">Covershift · Admin</span>
       </div>
 
       {/* Nav items */}

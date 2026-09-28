@@ -4,10 +4,10 @@ const SECTIONS = [
   {
     title: 'Platform',
     items: [
-      { label: 'Platform Name',    value: 'Coverline'         },
+      { label: 'Platform Name',    value: 'Covershift'         },
       { label: 'Environment',      value: 'Production'        },
       { label: 'Version',          value: 'v2.0 (Sep 2026)'   },
-      { label: 'Support Email',    value: 'support@coverline.health' },
+      { label: 'Support Email',    value: 'support@covershift.health' },
     ],
   },
   {
@@ -42,7 +42,7 @@ export default function SASettings() {
       </div>
 
       <div className="px-3 py-[9px] bg-info-bg border border-info rounded-[8px] text-[11.5px] text-info font-semibold mb-4">
-        These settings are managed by the platform administrator. Contact Coverline engineering to change core configuration values.
+        These settings are managed by the platform administrator. Contact Covershift engineering to change core configuration values.
       </div>
 
       <div className="flex flex-col gap-4">

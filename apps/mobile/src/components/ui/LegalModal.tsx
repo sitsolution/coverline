@@ -15,19 +15,19 @@ import {
 const TERMS_SECTIONS = [
   {
     heading: '1. Acceptance of Terms',
-    body: 'By creating an account on Coverline, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the platform.',
+    body: 'By creating an account on Covershift, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the platform.',
   },
   {
     heading: '2. Eligibility',
-    body: 'You must be at least 18 years of age and hold valid professional credentials (where applicable) to register on Coverline. By registering, you confirm that all information provided is accurate and up to date.',
+    body: 'You must be at least 18 years of age and hold valid professional credentials (where applicable) to register on Covershift. By registering, you confirm that all information provided is accurate and up to date.',
   },
   {
     heading: '3. Account Responsibilities',
-    body: 'You are responsible for maintaining the confidentiality of your login credentials. You agree to notify us immediately of any unauthorised access to your account. Coverline is not liable for any loss resulting from unauthorised use of your account.',
+    body: 'You are responsible for maintaining the confidentiality of your login credentials. You agree to notify us immediately of any unauthorised access to your account. Covershift is not liable for any loss resulting from unauthorised use of your account.',
   },
   {
     heading: '4. Professional Conduct',
-    body: 'Healthcare professionals using Coverline agree to uphold the standards of their respective licensing bodies, arrive punctually for confirmed shifts, and provide truthful information about qualifications and experience.',
+    body: 'Healthcare professionals using Covershift agree to uphold the standards of their respective licensing bodies, arrive punctually for confirmed shifts, and provide truthful information about qualifications and experience.',
   },
   {
     heading: '5. Shift Bookings & Cancellations',
@@ -35,11 +35,11 @@ const TERMS_SECTIONS = [
   },
   {
     heading: '6. Payments & Earnings',
-    body: 'Payments are processed according to the agreed shift rate. Coverline may deduct applicable service fees before disbursement. All payment disputes must be raised within 7 days of the shift completion date.',
+    body: 'Payments are processed according to the agreed shift rate. Covershift may deduct applicable service fees before disbursement. All payment disputes must be raised within 7 days of the shift completion date.',
   },
   {
     heading: '7. Termination',
-    body: 'Coverline reserves the right to suspend or terminate accounts that violate these terms, submit fraudulent documents, or engage in conduct that harms the platform or its users.',
+    body: 'Covershift reserves the right to suspend or terminate accounts that violate these terms, submit fraudulent documents, or engage in conduct that harms the platform or its users.',
   },
   {
     heading: '8. Amendments',
@@ -54,7 +54,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     heading: '2. How We Use Your Information',
-    body: 'Your information is used to match you with suitable shift opportunities, process payments, send relevant notifications, verify professional credentials, and improve the Coverline platform.',
+    body: 'Your information is used to match you with suitable shift opportunities, process payments, send relevant notifications, verify professional credentials, and improve the Covershift platform.',
   },
   {
     heading: '3. Data Sharing',
@@ -62,7 +62,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     heading: '4. Document Storage',
-    body: 'Professional documents (licenses, certifications, ID proofs) are stored securely and encrypted at rest. They are accessible only to authorised facility administrators and Coverline compliance staff.',
+    body: 'Professional documents (licenses, certifications, ID proofs) are stored securely and encrypted at rest. They are accessible only to authorised facility administrators and Covershift compliance staff.',
   },
   {
     heading: '5. Data Retention',
@@ -74,7 +74,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     heading: '7. Your Rights',
-    body: 'You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at privacy@coverline.app. We will respond within 30 days.',
+    body: 'You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at privacy@covershift.app. We will respond within 30 days.',
   },
   {
     heading: '8. Security',

@@ -13,8 +13,8 @@ from app.core.config import settings
 logging.basicConfig(level=logging.INFO if settings.DEBUG else logging.WARNING)
 
 app = FastAPI(
-    title="Coverline API",
-    description="Backend for the Coverline mobile app and admin dashboard.",
+    title="Covershift API",
+    description="Backend for the Covershift mobile app and admin dashboard.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -63,4 +63,4 @@ app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 @app.get("/health", tags=["health"])
 def health_check():
-    return {"status": "ok", "service": "coverline-api", "version": app.version}
+    return {"status": "ok", "service": "covershift-api", "version": app.version}

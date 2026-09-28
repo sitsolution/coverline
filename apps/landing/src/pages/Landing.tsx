@@ -72,7 +72,7 @@ function DashboardMockup() {
                 <path d="M2 12h4l2-7 4 14 2-9 2 5h6" stroke="#5FB4E0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-white text-[11px] font-bold">Coverline · Admin</span>
+            <span className="text-white text-[11px] font-bold">Covershift · Admin</span>
           </div>
           <div className="flex gap-1">
             {['#ff5f57','#ffbd2e','#28c840'].map(c => <div key={c} className="w-2 h-2 rounded-full" style={{background:c}}/>)}
@@ -148,7 +148,7 @@ function Hero() {
             </h1>
             {/* Subheadline */}
             <p className="text-[15px] md:text-[16.5px] text-white/65 leading-relaxed max-w-[480px] mb-9">
-              Coverline connects hospitals and clinics with verified doctors, nurses, and medical staff — instantly. Post a shift in minutes and get qualified applicants the same day.
+              Covershift connects hospitals and clinics with verified doctors, nurses, and medical staff — instantly. Post a shift in minutes and get qualified applicants the same day.
             </p>
             {/* CTAs */}
             <div className="flex flex-wrap gap-3 mb-10">
@@ -291,7 +291,7 @@ function HowItWorks() {
 function ForHospitals() {
   const features = [
     { icon: '⚡', title: 'Post Shifts in Minutes',   desc: 'Create and publish shifts with custom requirements, pay rates, and visibility settings from a clean web dashboard.' },
-    { icon: '🛡️', title: 'Verified Staff Only',       desc: 'Every professional on Coverline has verified credentials. Access qualification, experience, and reviews before confirming.' },
+    { icon: '🛡️', title: 'Verified Staff Only',       desc: 'Every professional on Covershift has verified credentials. Access qualification, experience, and reviews before confirming.' },
     { icon: '📊', title: 'Real-time Analytics',       desc: 'Track fill rates, shift volume, locum spend, and compliance reports. Know exactly how your staffing is performing.' },
     { icon: '📄', title: 'Document Management',       desc: 'Auto-expiry alerts, centralized credential storage, and one-click verification for all staff documents.' },
     { icon: '🔔', title: 'Instant Notifications',     desc: 'Staff are notified the moment your shift is published. Urgent shifts go to the top and get filled fastest.' },
@@ -314,7 +314,7 @@ function ForHospitals() {
               Run your staffing like a<br />well-oiled machine.
             </h2>
             <p className="text-[15px] text-slate mb-8 leading-relaxed">
-              Stop chasing staff through WhatsApp groups. Coverline gives your admin team a powerful dashboard to manage every shift, booking, and document in one place.
+              Stop chasing staff through WhatsApp groups. Covershift gives your admin team a powerful dashboard to manage every shift, booking, and document in one place.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-9">
@@ -349,7 +349,7 @@ function ForStaff() {
     { icon: '🩺', title: 'Browse Available Shifts',  desc: 'Filter by specialty, location, date, and pay rate. Find shifts that fit your schedule and preferences.' },
     { icon: '⚡', title: 'Apply Instantly',           desc: 'One-tap application directly from your phone. Get confirmed and receive all shift details immediately.' },
     { icon: '💰', title: 'Transparent Pay Rates',    desc: 'Every shift shows the exact pay rate upfront. No hidden fees, no surprises — what you see is what you get.' },
-    { icon: '📅', title: 'Manage Your Availability', desc: 'Set your working days and hours. Coverline only shows you shifts that match your availability.' },
+    { icon: '📅', title: 'Manage Your Availability', desc: 'Set your working days and hours. Covershift only shows you shifts that match your availability.' },
     { icon: '📈', title: 'Track Your Earnings',       desc: 'Full payment history, pending payments, and monthly earnings summary — all in your dashboard.' },
     { icon: '📄', title: 'Credential Management',    desc: 'Upload your documents once. Keep everything organised and get notified before anything expires.' },
   ];
@@ -365,7 +365,7 @@ function ForStaff() {
               Your career,<br />on your terms.
             </h2>
             <p className="text-[15px] text-slate mb-8 leading-relaxed">
-              Coverline puts you in control. Pick shifts that suit your schedule, earn transparently, and build your reputation across India's top hospitals and clinics.
+              Covershift puts you in control. Pick shifts that suit your schedule, earn transparently, and build your reputation across India's top hospitals and clinics.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-9">
@@ -410,7 +410,7 @@ function FeaturesGrid() {
   const items = [
     { icon: '🔒', title: 'Secure & Compliant',      desc: 'End-to-end data encryption, role-based access control, and full compliance with healthcare data standards.' },
     { icon: '⚡', title: 'Same-day Placements',     desc: 'Our average time from shift posting to confirmed staff is under 3 hours.' },
-    { icon: '📱', title: 'Mobile-first for Staff',  desc: 'The Coverline app for iOS and Android lets staff apply, track, and manage everything on the go.' },
+    { icon: '📱', title: 'Mobile-first for Staff',  desc: 'The Covershift app for iOS and Android lets staff apply, track, and manage everything on the go.' },
     { icon: '🌐', title: 'Web Dashboard for Admins',desc: 'A powerful, clean admin panel for hospitals — manage shifts, staff, bookings, and documents.' },
     { icon: '🔔', title: 'Real-time Notifications', desc: 'Push notifications, in-app alerts, and email updates keep everyone in the loop instantly.' },
     { icon: '📊', title: 'Data & Analytics',        desc: 'Fill rates, spend tracking, compliance reports, and top-performer dashboards built in.' },
@@ -446,13 +446,13 @@ function FeaturesGrid() {
 function Testimonials() {
   const quotes = [
     {
-      quote: "We used to fill emergency shifts through WhatsApp groups at 11pm. With Coverline, I post a shift and get 3 applicants within the hour. It's transformed how we operate.",
+      quote: "We used to fill emergency shifts through WhatsApp groups at 11pm. With Covershift, I post a shift and get 3 applicants within the hour. It's transformed how we operate.",
       name: 'Dr. Suresh Patil',
       title: 'Medical Director, Apollo Hospital Pune',
       initials: 'SP',
     },
     {
-      quote: "I do locum shifts between my regular job. Coverline lets me see exactly which shifts are available near me, what they pay, and apply instantly. I've doubled my extra income.",
+      quote: "I do locum shifts between my regular job. Covershift lets me see exactly which shifts are available near me, what they pay, and apply instantly. I've doubled my extra income.",
       name: 'Dr. Ananya Rao',
       title: 'Emergency Medicine Physician',
       initials: 'AR',
@@ -517,7 +517,7 @@ function FinalCTA() {
           Ready to transform your<br />healthcare staffing?
         </h2>
         <p className="text-[15px] md:text-[17px] text-white/60 max-w-[480px] mx-auto mb-10 leading-relaxed">
-          Join hospitals and medical professionals already using Coverline to fill shifts faster, smarter, and stress-free.
+          Join hospitals and medical professionals already using Covershift to fill shifts faster, smarter, and stress-free.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <a

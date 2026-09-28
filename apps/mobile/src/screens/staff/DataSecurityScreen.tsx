@@ -67,7 +67,7 @@ export default function DataSecurityScreen({ navigation }: Props) {
         />
         <InfoBlock
           title="How we use it"
-          body="Your data is used solely to operate the Coverline platform. We do not sell your personal information to third parties."
+          body="Your data is used solely to operate the Covershift platform. We do not sell your personal information to third parties."
         />
         <InfoBlock
           title="Data retention"

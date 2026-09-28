@@ -7,7 +7,7 @@ import Modal from '../components/ui/Modal';
 import adminSettingsService, { FacilityProfileOut, AdminUserRow } from '../services/adminSettingsService';
 import { useAuth } from '../store/auth';
 
-const SUPPORT_EMAIL = 'info@coverline.app';
+const SUPPORT_EMAIL = 'info@covershift.app';
 
 const NOTIFICATION_ITEMS: { key: 'pushNotifications' | 'smsAlerts' | 'emailAlerts'; label: string; desc: string }[] = [
   { key: 'pushNotifications', label: 'Push Notifications', desc: 'Browser and in-app alerts for new applications, bookings, and updates' },
@@ -523,7 +523,7 @@ export default function AdminSettings() {
 
         {activeNav === 'Integrations' && (
           <Panel title="Integrations">
-            <p className="text-[12px] text-slate mb-4">Connect Coverline with your existing tools.</p>
+            <p className="text-[12px] text-slate mb-4">Connect Covershift with your existing tools.</p>
 
             {/* Export */}
             <div className="border border-line rounded-[10px] p-4 mb-3">
@@ -630,7 +630,7 @@ export default function AdminSettings() {
 
         {activeNav === 'Help & Support' && (
           <Panel title="Help & Support">
-            <p className="text-[12px] text-slate mb-5">Need help? Reach out to the Coverline support team.</p>
+            <p className="text-[12px] text-slate mb-5">Need help? Reach out to the Covershift support team.</p>
 
             {/* Email card */}
             <div className="border border-line rounded-[10px] p-4 mb-4">

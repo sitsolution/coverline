@@ -248,7 +248,7 @@ export default function SAFacilities() {
             Facilities
           </div>
           <div className="text-[11.5px] text-slate">
-            {total.toLocaleString()} facilities on Coverline
+            {total.toLocaleString()} facilities on Covershift
           </div>
         </div>
         <button
