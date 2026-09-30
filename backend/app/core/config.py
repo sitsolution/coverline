@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     OTP_MAX_ATTEMPTS: int = 5
     OTP_RESEND_COOLDOWN_SECONDS: int = 60
 
+    # ── Email (Resend) ────────────────────────────────────────────────────────
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "noreply@covershift.in"
+    EMAIL_FROM_NAME: str = "Covershift"
+
     # ── Push Notifications ────────────────────────────────────────────────────
     # Expo Push — optional access token raises rate limits on the Expo push API.
     # Leave blank during development; add once you have the Expo project set up.

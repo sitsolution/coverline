@@ -10,6 +10,7 @@ import SignUpAdminScreen from '../screens/auth/SignUpAdminScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
+import GoogleSignupScreen from '../screens/auth/GoogleSignupScreen';
 
 export type AuthStackParamList = {
   Splash: undefined;
@@ -22,6 +23,7 @@ export type AuthStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
   OTPVerification: { email: string; debugOtp?: string | null };
+  GoogleSignup: { googleEmail: string; googleName: string; accessToken: string };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -39,6 +41,7 @@ export default function AuthNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+      <Stack.Screen name="GoogleSignup" component={GoogleSignupScreen} />
     </Stack.Navigator>
   );
 }

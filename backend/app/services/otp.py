@@ -1,8 +1,7 @@
 """One-time codes for signup verification and password reset.
 
-There is no SMS/email provider wired up yet, so ``deliver`` logs the code and,
-in DEBUG only, the API echoes it back so the flow stays testable. Swapping in
-a real provider means changing ``deliver`` and nothing else.
+Emails are sent via Resend. In DEBUG mode the OTP is also logged so the flow
+stays testable without needing to check your inbox.
 """
 
 import hashlib
@@ -10,6 +9,8 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
+
+import resend
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -80,8 +81,33 @@ def issue_code(db: Session, user: User, purpose: OtpPurpose) -> str:
 
 
 def deliver(user: User, code: str, purpose: OtpPurpose) -> None:
-    """Replace this with a real SMS/email provider."""
+    """Send OTP via Resend email. Falls back to log-only if API key not set."""
     logger.info("OTP for %s (%s): %s", user.email, purpose.value, code)
+
+    if not settings.RESEND_API_KEY:
+        return
+
+    subject_map = {
+        OtpPurpose.signup_verification: "Your Covershift verification code",
+        OtpPurpose.password_reset: "Your Covershift password reset code",
+    }
+    subject = subject_map.get(purpose, "Your Covershift verification code")
+
+    resend.api_key = settings.RESEND_API_KEY
+    try:
+        resend.Emails.send({
+            "from": f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>",
+            "to": [user.email],
+            "subject": subject,
+            "html": (
+                f"<p>Hi {user.full_name},</p>"
+                f"<p>Your verification code is: <strong style='font-size:24px'>{code}</strong></p>"
+                f"<p>This code expires in {settings.OTP_TTL_MINUTES} minutes. Do not share it with anyone.</p>"
+                f"<p>— The Covershift Team</p>"
+            ),
+        })
+    except Exception as exc:
+        logger.error("Failed to send OTP email to %s: %s", user.email, exc)
 
 
 def verify_code(db: Session, user: User, code: str, purpose: OtpPurpose) -> Tuple[bool, str]:

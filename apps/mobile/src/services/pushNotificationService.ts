@@ -27,7 +27,7 @@ Notifications.setNotificationHandler({
 });
 
 // TODO: replace with the real Expo project ID from expo.dev once client provides it
-const EXPO_PROJECT_ID = 'EXPO_PROJECT_ID_PLACEHOLDER';
+const EXPO_PROJECT_ID = '142eff2c-6fe2-4643-9e8d-454847b824eb';
 
 export async function registerForPushNotifications(): Promise<void> {
   // Physical device required — simulators/emulators don't receive push

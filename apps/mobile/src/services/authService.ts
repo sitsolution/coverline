@@ -154,6 +154,31 @@ const authService = {
   logout: async (): Promise<void> => {
     await api.post('/auth/logout');
   },
+
+  googleAuth: async (accessToken: string): Promise<TokenData | { needsRegistration: true; googleEmail: string; googleName: string }> => {
+    const { data } = await api.post('/auth/google', { accessToken });
+    return data;
+  },
+
+  googleSignup: async (form: {
+    accessToken: string;
+    role: string;
+    phone?: string;
+    licenseNumber?: string;
+    regNumber?: string;
+    certNumber?: string;
+    idProof?: string;
+    specialty?: string;
+    certifyingBody?: string;
+    workArea?: string;
+    experience?: string;
+    facilityName?: string;
+    facilityType?: string;
+    city?: string;
+  }): Promise<TokenData> => {
+    const { data } = await api.post('/auth/google-signup', form);
+    return data;
+  },
 };
 
 export default authService;

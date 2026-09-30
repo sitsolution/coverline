@@ -170,3 +170,38 @@ class ChangePasswordRequest(CamelModel):
     @classmethod
     def check_password(cls, v: str) -> str:
         return _validate_password(v)
+
+
+class GoogleAuthRequest(CamelModel):
+    access_token: str
+
+
+class GoogleNeedsRegistrationResponse(CamelModel):
+    needs_registration: bool = True
+    google_email: str
+    google_name: str
+
+
+class GoogleSignupRequest(CamelModel):
+    access_token: str
+    role: UserRole
+    phone: Optional[str] = None
+    license_number: Optional[str] = None
+    reg_number: Optional[str] = None
+    cert_number: Optional[str] = None
+    id_proof: Optional[str] = None
+    specialty: Optional[str] = None
+    certifying_body: Optional[str] = None
+    work_area: Optional[str] = None
+    experience: Optional[str] = None
+    facility_name: Optional[str] = None
+    facility_type: Optional[FacilityType] = None
+    city: Optional[str] = None
+
+    @property
+    def credential(self) -> Optional[str]:
+        return self.license_number or self.reg_number or self.cert_number or self.id_proof
+
+    @property
+    def classification(self) -> Optional[str]:
+        return self.specialty or self.certifying_body or self.work_area

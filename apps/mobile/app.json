@@ -34,7 +34,7 @@
     "scheme": "covershift",
     "extra": {
       "eas": {
-        "projectId": "EXPO_PROJECT_ID_PLACEHOLDER"
+        "projectId": "142eff2c-6fe2-4643-9e8d-454847b824eb"
       }
     },
     "plugins": [
@@ -60,7 +60,8 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

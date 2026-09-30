@@ -20,6 +20,9 @@ from app.models.user import StaffProfile, User, UserSettings
 from app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    GoogleAuthRequest,
+    GoogleNeedsRegistrationResponse,
+    GoogleSignupRequest,
     LoginRequest,
     OtpSentResponse,
     RefreshRequest,
@@ -284,6 +287,101 @@ def accept_invitation(payload: ResetPasswordRequest, db: Session = Depends(get_d
         FacilityMember.accepted_at.is_(None),
     ).update({"accepted_at": datetime.now(timezone.utc)}, synchronize_session=False)
 
+    db.commit()
+    db.refresh(user)
+    return TokenResponse(**_token_response(user))
+
+
+@router.post("/google", response_model=TokenResponse | GoogleNeedsRegistrationResponse)
+def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """Sign in with Google. Returns JWT if user exists, else needsRegistration payload."""
+    import httpx
+    resp = httpx.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {payload.access_token}"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+
+    google_data = resp.json()
+    email = google_data.get("email")
+    full_name = google_data.get("name", "")
+
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google account has no email")
+
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
+        user.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+        return TokenResponse(**_token_response(user))
+
+    return GoogleNeedsRegistrationResponse(google_email=email, google_name=full_name)
+
+
+@router.post("/google-signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+def google_signup(payload: GoogleSignupRequest, db: Session = Depends(get_db)):
+    """Complete registration for new Google users after role selection."""
+    import httpx
+    import secrets as _secrets
+    resp = httpx.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {payload.access_token}"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+
+    google_data = resp.json()
+    email = google_data.get("email")
+    full_name = google_data.get("name", "")
+
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google account has no email")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if payload.phone and db.query(User).filter(User.phone == payload.phone).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already registered")
+
+    user = User(
+        email=email,
+        phone=payload.phone or None,
+        full_name=full_name,
+        hashed_password=hash_password(_secrets.token_urlsafe(32)),
+        role=payload.role,
+        accepted_terms_at=datetime.now(timezone.utc),
+        is_verified=True,
+    )
+    db.add(user)
+    db.flush()
+
+    if payload.role in STAFF_ROLES:
+        db.add(StaffProfile(
+            user_id=user.id,
+            credential_number=payload.credential,
+            specialty=payload.classification,
+            experience=payload.experience,
+        ))
+    elif payload.role == UserRole.facility_admin:
+        facility = Facility(
+            name=payload.facility_name,
+            facility_type=payload.facility_type,
+            city=payload.city,
+            created_by_id=user.id,
+        )
+        db.add(facility)
+        db.flush()
+        db.add(FacilityMember(
+            facility_id=facility.id,
+            user_id=user.id,
+            facility_role=FacilityRole.super_admin,
+            accepted_at=datetime.now(timezone.utc),
+        ))
+
+    _seed_defaults(db, user)
     db.commit()
     db.refresh(user)
     return TokenResponse(**_token_response(user))
